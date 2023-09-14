@@ -2,6 +2,7 @@
 #include "pipeline.h"
 
 #include <iostream>
+#include <vector>
 
 #include "../lib/log.h"
 #include "../lib/mathlib.h"
@@ -12,7 +13,7 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
                                                    typename Program::Parameters const& parameters,
                                                    Framebuffer* framebuffer_) {
 	// Framebuffer must be non-null:
-	assert(framebuffer_);
+	assert(framebuffer_); 
 	auto& framebuffer = *framebuffer_;
 
 	// A1T7: sample loop
@@ -142,6 +143,8 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 			// "Less" means the depth test passes when the new fragment has depth less than the stored depth.
 			// A1T4: Depth_Less
 			// TODO: implement depth test! We want to only emit fragments that have a depth less than the stored depth, hence "Depth_Less".
+			if(fb_depth<=f.fb_position.z)
+				continue;
 		} else {
 			static_assert((flags & PipelineMask_Depth) <= Pipeline_Depth_Always, "Unknown depth test flag.");
 		}
@@ -164,12 +167,12 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 			} else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Add) {
 				// A1T4: Blend_Add
 				// TODO: framebuffer color should have fragment color multiplied by fragment opacity added to it.
-				fb_color = sf.color; //<-- replace this line
+				fb_color += sf.color * sf.opacity; //<-- replace this line
 			} else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Over) {
 				// A1T4: Blend_Over
 				// TODO: set framebuffer color to the result of "over" blending (also called "alpha blending") the fragment color over the framebuffer color, using the fragment's opacity
 				// 		 You may assume that the framebuffer color has its alpha premultiplied already, and you just want to compute the resulting composite color
-				fb_color = sf.color; //<-- replace this line
+				fb_color = fb_color * (1.0 - sf.opacity) + sf.color; //<-- replace this line
 			} else {
 				static_assert((flags & PipelineMask_Blend) <= Pipeline_Blend_Over, "Unknown blending flag.");
 			}
@@ -356,19 +359,145 @@ void Pipeline<p, P, flags>::rasterize_line(
 		assert(0 && "rasterize_line should only be invoked in flat interpolation mode.");
 	}
 	// A1T2: rasterize_line
+	float epsilon = 0.001f;
+	Vec2 a = va.fb_position.xy() + Vec2{epsilon,epsilon*epsilon};
+	Vec2 b = vb.fb_position.xy() + Vec2{epsilon,epsilon*epsilon};
+	float a_z = va.fb_position.z;
+	float b_z = vb.fb_position.z;
+	float d_x = b[0] - a[0];
+	float d_y = b[1] - a[1];
+	float d_z = vb.fb_position.z - va.fb_position.z;
+	
 
-	// TODO: Check out the block comment above this function for more information on how to fill in
-	// this function!
+	float x_a = va.fb_position.x;
+	float y_a = va.fb_position.y;
+	float x_b = vb.fb_position.x;
+	float y_b = vb.fb_position.y;
+
+	// Compute longer axis i and shorter axis j
+	int i = 0, j = 1;
+	if (std::abs(d_x) < std::abs(d_y)) {
+		std::swap(i,j);
+		std::swap(d_x,d_y);
+		std::swap(x_a,y_a);
+		std::swap(x_b,y_b);
+	}
+
+	float px_a = floor(x_a) + 0.5;
+	float py_a = floor(y_a) + 0.5;
+	float px_b = floor(x_b) + 0.5;
+	float py_b = floor(y_b) + 0.5;
+
+	// Starting coordinate has smaller value along lnger axis
+	if(a[i] > b[i]) {
+		std::swap(a, b);
+		d_x = -d_x;
+		d_y = -d_y;
+		d_z = -d_z;
+		std::swap(a_z,b_z);
+	}
+	Vec2 ab = b-a;
+
+	// Compute longer axis bound (exclude starting and ending point)
+	float t1 = floor(a[i]);
+	float t2 = floor(b[i]);
+
+	// Shade start and end points
+	/* - If the line starts inside a diamond and exits to continue on, 
+	the starting pixel gets shaded. 
+	- If the line starts at the outside of a diamond and continues on 
+	without entering the said diamond, we do not shade the pixel. 
+	- If the line ends inside a diamond, we do not shade the pixel. 
+	- If the line ends outside a diamond it passed through, we shade the pixel.*/
+
+	auto pass_through = [&] (float px, float py) 
+    {
+		// line pass through diamond
+        float w = (px - a[i])/d_x;
+		float v = w * (d_y)+a[j];
+		return std::abs(v-py)<0.5;
+    };
+
+	auto is_inside_diamond = [&] (float x, float y, float px, float py) 
+    {
+        return std::abs(y-py) + std::abs(x-px) < 0.5 ||
+				(std::abs(px-x-0.5)<epsilon && std::abs(y-py)<epsilon)|| 
+				(std::abs(py-y-0.5)<epsilon && std::abs(x-px)<epsilon);
+    };
+	
+	bool is_a_inside_diamond = is_inside_diamond(x_a, y_a, px_a, py_a);
+	bool is_b_inside_diamond = is_inside_diamond(x_b, y_b, px_b, py_b);
+	
+	bool shade_a = false, shade_b = false;
+	if(std::abs(t1-t2)<epsilon){
+		// a and b in the same pixel
+		if(is_b_inside_diamond && is_a_inside_diamond)
+			// a and b inside the same diamond
+			return;
+		else if (is_a_inside_diamond) {
+			// a inside the diamond and b outside the diamond
+			shade_a = true;
+		} else if (!is_b_inside_diamond && !is_a_inside_diamond){
+			// a outside the diamond and b outside the diamond
+			shade_a = pass_through(px_a, py_a);
+		}
+	} else {
+		if(is_b_inside_diamond)
+			shade_a = is_a_inside_diamond;
+		else {
+			// a outside the diamond
+			if(x_a <= px_a)
+				shade_a = pass_through(px_a, py_a);
+		}
+		if(!is_b_inside_diamond) {
+			// b outside the diamond
+			if(x_b >= px_b) // b pass through the diamond
+				shade_b = pass_through(px_b, py_b);
+		}
+		
+	}
+
+	auto shade = [&](float px, float py){
+		Vec2 pr = Vec2{px, py};
+		float t = dot(pr - a,ab)/ab.norm();
+		float z = t * (d_z)+a_z;
+		Fragment frag;
+		frag.fb_position = Vec3{px, py, z};;
+		frag.attributes = va.attributes;
+		frag.derivatives.fill(Vec2(0.0f, 0.0f));
+		emit_fragment(frag);
+	};
+
+	if(shade_a) {
+		if(i==1){
+			std::swap(px_a,py_a);
+		}
+		shade(px_a,py_a);
+	}
+
+	if(shade_b) {
+		if(i==1){
+			std::swap(px_b,py_b);
+		}
+		shade(px_b,py_b);
+	}
+	
+	
+	// Ignore 2 endpoints
+	t1 += 1.0;
+	t2 -= 1.0;
+
+	for(float u=t1; u<=t2; u+=1.0){
+		float w = ((u+0.5) - a[i])/d_x;
+		float v = w * (d_y)+a[j];
+		float px = floor(u)+0.5, py = floor(v)+0.5;
+		if(i==1){
+			std::swap(px,py);
+		}
+		shade(px,py);
+	}
 	// The OpenGL specification section 3.5 may also come in handy.
 
-	{ // As a placeholder, draw a point in the middle of the line:
-		//(remove this code once you have a real implementation)
-		Fragment mid;
-		mid.fb_position = (va.fb_position + vb.fb_position) / 2.0f;
-		mid.attributes = va.attributes;
-		mid.derivatives.fill(Vec2(0.0f, 0.0f));
-		emit_fragment(mid);
-	}
 
 }
 
@@ -423,9 +552,114 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 
 		// As a placeholder, here's code that draws some lines:
 		//(remove this and replace it with a real solution)
-		Pipeline<PrimitiveType::Lines, P, flags>::rasterize_line(va, vb, emit_fragment);
-		Pipeline<PrimitiveType::Lines, P, flags>::rasterize_line(vb, vc, emit_fragment);
-		Pipeline<PrimitiveType::Lines, P, flags>::rasterize_line(vc, va, emit_fragment);
+		float epsilon = 0.001f;
+		Vec3 a = va.fb_position;
+		Vec3 b = vb.fb_position;
+		Vec3 c = vc.fb_position;
+		std::vector<Vec3> vec{a,b,c};
+		sort(vec.begin(),vec.end());
+		a = vec[0];
+		b = vec[1];
+		c = vec[2];
+
+		float left = floor(std::fmin(a[0],std::fmin(b[0],c[0])));
+		float right = floor(std::fmax(a[0],std::fmax(b[0],c[0])));
+		float bottom = floor(std::fmin(a[1],std::fmin(b[1],c[1])));
+		float top = floor(std::fmax(a[1],std::fmax(b[1],c[1])));
+
+		auto same_side = [=](Vec3& a, Vec3& b, Vec3& c, Vec3& pt){
+			Vec3 ac_cross_ab = cross(c-a,b-a);
+			Vec3 ac_cross_ap = cross(c-a,pt-a);
+			return dot(ac_cross_ab,ac_cross_ap) > 0;
+		};
+
+		auto inside_triangle = [&](float x, float y, float z)
+		{   
+			Vec3 pt = Vec3{x,y,z};
+			if(same_side(a,b,c,pt) && same_side(b,c,a,pt) && same_side(c,a,b,pt))
+				return true;
+			return false;
+		};
+
+		auto shade = [&](float px, float py, float pz){
+			Fragment frag;
+			frag.fb_position = Vec3{px, py, pz};;
+			frag.attributes = va.attributes;
+			frag.derivatives.fill(Vec2(0.0f, 0.0f)); 
+			emit_fragment(frag);
+		};
+
+		auto compute_barycentric = [&](float x, float y)
+		{
+			float u = (x*(b[1] - c[1]) + (c[0] - b[0])*y + b[0]*c[1] - c[0]*b[1]) / (a[0]*(b[1] - c[1]) + (c[0] - b[0])*a[1] + b[0]*c[1] - c[0]*b[1]);
+			float v = (x*(c[1] - a[1]) + (a[0] - c[0])*y + c[0]*a[1] - a[0]*c[1]) / (b[0]*(c[1] - a[1]) + (a[0] - c[0])*b[1] + c[0]*a[1] - a[0]*c[1]);
+			float w = (x*(a[1] - b[1]) + (b[0] - a[0])*y + a[0]*b[1] - b[0]*a[1]) / (c[0]*(a[1] - b[1]) + (b[0] - a[0])*c[1] + a[0]*b[1] - b[0]*a[1]);
+			return std::tuple{u,v,w};
+		};
+
+		Vec3 top_edge, top_edge_v, left_edge, left_edge_v;
+		bool has_top_edge = false;
+		bool has_left_edge = false;
+
+		auto find_top_edge = [&]() {
+			Vec3 ab = b-a;
+			Vec3 bc = c-b;
+			Vec3 ca = c-a;
+			if(std::abs(ab[1])<epsilon && a[1]>c[1]){
+				top_edge = ab;
+				top_edge_v = a;
+			} else if(std::abs(bc[1])<epsilon && b[1]>a[1]){
+				top_edge = bc;
+				top_edge_v = b;
+			} else if(std::abs(ca[1])<epsilon && c[1]>b[1]){
+				top_edge = ca;
+				top_edge_v = c;
+			} else {
+				return;
+			}
+			has_top_edge = true;
+		};
+
+		auto find_left_edge = [&]() {
+			Vec3 ab = b-a;
+			Vec3 bc = c-b;
+			Vec3 ca = c-a;
+			if(ab[1]>0) {
+				left_edge = ab;
+				left_edge_v = a;
+			} else if(bc[1]>0) {
+				left_edge = bc;
+				left_edge_v = b;
+			} else if(ca[1]>0) {
+				left_edge = ca;
+				left_edge_v = c;
+			} else {
+				return;
+			}
+			has_left_edge = true;
+		};
+
+		find_top_edge();
+		find_left_edge();
+
+		auto on_edge = [=](Vec3 edge, Vec3 vert, Vec3 pt){
+			return cross(pt-vert, edge)==Vec3();
+		};	
+			
+		for(float i=left; i<=right; i++){
+			for(float j=bottom; j<=top; j++) {
+				float px = i+0.5;
+				float py = j+0.5;
+				auto[u, v, w] = compute_barycentric(px, py);
+				float pz = u*a[2]+v*b[2]+w*c[2];
+				Vec3 pt = Vec3(px,py,pz);
+				if(inside_triangle(px, py, pz) ||
+					(has_top_edge && on_edge(top_edge, top_edge_v, pt)) ||
+					(has_left_edge && on_edge(left_edge, left_edge_v, pt))) {
+					shade(px,py,pz);
+				}
+			}
+		}
 	} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Smooth) {
 		// A1T5: screen-space smooth triangles
 		// TODO: rasterize triangle (see block comment above this function).
