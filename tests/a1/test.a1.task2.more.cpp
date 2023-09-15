@@ -263,3 +263,13 @@ Test test_a1_task2_horizontal_edge_start("a1.task2.more.horizontal.edge.start", 
 						".#.", 
 						"..."});
 });
+
+// Check 45 degree line
+
+Test test_a1_task2_45("a1.task2.more.45", []() {
+    extra_test::check_line_covers("a 45 line from (0.5, 1.0) to (1.5, 2.0)",
+                      {Vec2(0.5f, 1.0f), Vec2(1.5f, 2.0f)},
+                      {"...", 
+						"#.", 
+						"..."});
+});
