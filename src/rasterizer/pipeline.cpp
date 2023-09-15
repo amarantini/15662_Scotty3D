@@ -408,7 +408,10 @@ void Pipeline<p, P, flags>::rasterize_line(
 	- If the line starts at the outside of a diamond and continues on 
 	without entering the said diamond, we do not shade the pixel. 
 	- If the line ends inside a diamond, we do not shade the pixel. 
-	- If the line ends outside a diamond it passed through, we shade the pixel.*/
+	- If the line ends outside a diamond it passed through, we shade the pixel.
+	- A line to exit a diamond if 1) enters the diamond (either by starting in it 
+	or passing through a point owned by the diamond) and 2) exits the diamond
+	(by passing beyond any point on the diamond)*/
 
 	auto pass_through = [&] (float px, float py) 
     {
@@ -451,7 +454,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 		}
 		if(!is_b_inside_diamond) {
 			// b outside the diamond
-			if(x_b >= px_b) // b pass through the diamond
+			if(x_b > px_b) // b pass through the diamond
 				shade_b = pass_through(px_b, py_b);
 		}
 		
