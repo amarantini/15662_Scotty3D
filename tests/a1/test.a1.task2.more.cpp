@@ -246,3 +246,12 @@ Test test_a1_task2_diamond_top_no_exit("a1.task2.more.diamond.top.no.exit", []()
 						"#..", 
 						"..."});
 });
+
+// Checks a horizontal line on the edge of pixels
+Test test_a1_task2_horizontal_edge("a1.task2.more.horizontal.edge", []() {
+    extra_test::check_line_covers("a horizontal line on the edge of pixels stops at the bottom point of diamond",
+                      {Vec2(0.8f, 1.0f), Vec2(3.5f, 1.0f)},
+                      {"...", 
+						".#.", 
+						"..."});
+});
