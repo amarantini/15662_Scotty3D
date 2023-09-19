@@ -559,30 +559,26 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 		Vec3 a = va.fb_position;
 		Vec3 b = vb.fb_position;
 		Vec3 c = vc.fb_position;
-		std::vector<Vec3> vec{a,b,c};
-		sort(vec.begin(),vec.end());
-		a = vec[0];
-		b = vec[1];
-		c = vec[2];
+		
+		if(cross((c-a),(b-a)).z < 0){
+			Vec3 tmp = c;
+			c = b;
+			b = tmp;
+		}
+		log("After\n");
+		log("a: "+to_string(a)+"\n");
+		log("b: "+to_string(b)+"\n");
+		log("c: "+to_string(c)+"\n");
+		// std::vector<Vec3> vec{a,b,c};
+		// sort(vec.begin(),vec.end());
+		// a = vec[0];
+		// b = vec[1];
+		// c = vec[2];
 
 		float left = floor(std::fmin(a[0],std::fmin(b[0],c[0])));
 		float right = floor(std::fmax(a[0],std::fmax(b[0],c[0])));
 		float bottom = floor(std::fmin(a[1],std::fmin(b[1],c[1])));
 		float top = floor(std::fmax(a[1],std::fmax(b[1],c[1])));
-
-		auto same_side = [=](Vec3& a, Vec3& b, Vec3& c, Vec3& pt){
-			Vec3 ac_cross_ab = cross(c-a,b-a);
-			Vec3 ac_cross_ap = cross(c-a,pt-a);
-			return dot(ac_cross_ab,ac_cross_ap) > 0;
-		};
-
-		auto inside_triangle = [&](float x, float y, float z)
-		{   
-			Vec3 pt = Vec3{x,y,z};
-			if(same_side(a,b,c,pt) && same_side(b,c,a,pt) && same_side(c,a,b,pt))
-				return true;
-			return false;
-		};
 
 		auto shade = [&](float px, float py, float pz){
 			Fragment frag;
@@ -600,9 +596,12 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 			return std::tuple{u,v,w};
 		};
 
-		Vec3 top_edge, top_edge_v, left_edge, left_edge_v;
+		Vec3 top_edge, top_edge_v;
+		Vec3 left_edge_1, left_edge_v_1;
+		Vec3 left_edge_2, left_edge_v_2;
 		bool has_top_edge = false;
-		bool has_left_edge = false;
+		bool has_left_edge_1 = false;
+		bool has_left_edge_2 = false;
 
 		auto find_top_edge = [&]() {
 			Vec3 ab = b-a;
@@ -624,30 +623,82 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 		};
 
 		auto find_left_edge = [&]() {
+			
 			Vec3 ab = b-a;
 			Vec3 bc = c-b;
-			Vec3 ca = c-a;
+			Vec3 ca = a-c;
 			if(ab[1]>0) {
-				left_edge = ab;
-				left_edge_v = a;
-			} else if(bc[1]>0) {
-				left_edge = bc;
-				left_edge_v = b;
-			} else if(ca[1]>0) {
-				left_edge = ca;
-				left_edge_v = c;
-			} else {
-				return;
+				left_edge_1 = ab;
+				left_edge_v_1 = a;
+				has_left_edge_1 = true;
 			}
-			has_left_edge = true;
+			if(bc[1]>0) {
+				if(!has_left_edge_1) {
+					left_edge_1 = bc;
+					left_edge_v_1 = b;
+					has_left_edge_1 = true;
+				} else {
+					left_edge_2 = bc;
+					left_edge_v_2 = b;
+					has_left_edge_2 = true;
+				}
+				
+			}
+			if(ca[1]>0) {
+				if(!has_left_edge_1) {
+					left_edge_1 = ca;
+					left_edge_v_1 = c;
+					has_left_edge_1 = true;
+				} else {
+					left_edge_2 = ca;
+					left_edge_v_2 = c;
+					has_left_edge_2 = true;
+				}
+			}
+			
 		};
 
 		find_top_edge();
 		find_left_edge();
 
+		log("top edge: "+to_string(top_edge)+"\n");
+		log("left edge 1: "+to_string(left_edge_1)+"\n");
+		log("left edge 2: "+to_string(left_edge_2)+"\n");
+
 		auto on_edge = [=](Vec3 edge, Vec3 vert, Vec3 pt){
+			if(cross(pt-vert, edge)==Vec3())
+				log(to_string(pt)+" on edge "+to_string(edge)+"\n");
 			return cross(pt-vert, edge)==Vec3();
 		};	
+
+		auto same_side = [=](Vec3& a, Vec3& b, Vec3& c, Vec3& pt){
+			Vec3 ac_cross_ab = cross(c-a,b-a);
+			Vec3 ac_cross_ap = cross(c-a,pt-a);
+			return dot(ac_cross_ab,ac_cross_ap);
+		};
+
+		auto inside_triangle = [&](float x, float y, float z)
+		{   
+			Vec3 pt = Vec3{x,y,z};
+			float same_side_1 = same_side(a,b,c,pt);
+			float same_side_2 = same_side(b,c,a,pt);
+			float same_side_3 = same_side(c,a,b,pt);
+			if(same_side_1>=0 && same_side_2>=0 && same_side_3>=0) {
+				if (std::abs(same_side_1)<epsilon || std::abs(same_side_2)<epsilon || std::abs(same_side_3)<epsilon) {
+				
+					bool is_on_edge = (has_top_edge && on_edge(top_edge, top_edge_v, pt)) ||
+						(has_left_edge_1 && on_edge(left_edge_1, left_edge_v_1, pt)) ||
+						(has_left_edge_2 && on_edge(left_edge_2, left_edge_v_2, pt));
+					log("on edge: "+ std::to_string(is_on_edge)+"\n");
+					return is_on_edge;
+				}
+				log(to_string(pt)+ " inside triangle\n");
+				return true;
+			}
+			
+
+			return false;
+		};
 			
 		for(float i=left; i<=right; i++){
 			for(float j=bottom; j<=top; j++) {
@@ -656,9 +707,7 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 				auto[u, v, w] = compute_barycentric(px, py);
 				float pz = u*a[2]+v*b[2]+w*c[2];
 				Vec3 pt = Vec3(px,py,pz);
-				if(inside_triangle(px, py, pz) ||
-					(has_top_edge && on_edge(top_edge, top_edge_v, pt)) ||
-					(has_left_edge && on_edge(left_edge, left_edge_v, pt))) {
+				if(inside_triangle(px, py, pz)) {
 					shade(px,py,pz);
 				}
 			}

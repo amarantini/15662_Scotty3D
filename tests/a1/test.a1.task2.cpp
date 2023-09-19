@@ -185,4 +185,140 @@ Test test_a1_task2_simple_vertical("a1.task2.simple.vertical", []() {
 	);
 });
 
+// Additional tests ===============================
+Test test_a1_task2_start_on_diamond_left_point("a1.task2.more.diamond.left", []() {
+	check_line_covers(
+		"line from (3.0f, 1.5f) to (1.25f, 1.5f)",
+		{ Vec2(3.0f, 1.5f), Vec2(1.25f, 1.5f) },
+		{"....",
+		 "..##",
+		 "...."}
+	);
+});
 
+Test test_a1_task2_start_on_diamond_bottom_point("a1.task2.more.diamond.bottom", []() {
+	check_line_covers(
+		"line from (1.5f, 1.0f) to (2.25f, 1.75f)",
+		{ Vec2(1.5f, 1.0f), Vec2(2.25f, 1.75f) },
+		{"...",
+		 ".#.",
+		 "..."}
+	);
+});
+
+Test test_a1_task2_inside_pixel_a_in_b_out("a1.task2.more.inside.pixel.ain.bout", []() {
+	check_line_covers(
+		"line from (1.5f, 1.5f) to (1.2f, 1.2f)",
+		{ Vec2(1.5f, 1.5f), Vec2(1.2f, 1.2f) },
+		{"...",
+		 ".#.",
+		 "..."}
+	);
+});
+
+Test test_a1_task2_test1("a1.task2.more.simple.test1", []() {
+ 	check_line_covers(
+  "vertical line",
+  { Vec2(1.125f, 1.125f), Vec2(1.125f, 6.875f) },
+  {"...",
+   ".#.",
+   ".#.",
+   ".#.",
+   ".#.",
+   ".#.",
+   ".#.",
+   "..."}
+ );
+});
+
+Test test_a1_task2_test2("a1.task2.more.test2", []() {
+ 	check_line_covers(
+  "diagonal length 2",
+  { Vec2(0.0f, 0.0f), Vec2(2.0f, 2.0f) },
+  {".....",
+   ".#...",
+   "#...."}
+ );
+});
+
+Test test_a1_task2_test3("a1.task2.more.test3", []() {
+ check_line_covers(
+  "diagonal length 8",
+  { Vec2(0.0f, 0.0f), Vec2(8.0f, 8.0f) },
+  {".......#.",
+   "......#..",
+   ".....#...",
+   "....#....",
+   "...#.....",
+   "..#......",
+   ".#......",
+   "#......."}
+ );
+}); 
+
+Test test_a1_task2_horizontal_2("a1.task2.more.horizontal.2", []() {
+ check_line_covers(
+  "horizontal line from (1.5, 1.125) to (4.5, 1.125)",
+  { Vec2(1.5f, 1.125f), Vec2(4.5f, 1.125f) },
+  {".....",
+   ".###.",
+   "....."}
+ );
+});
+
+Test test_a1_task2_vertical_2("a1.task2.more.vertical.2", []() {
+ check_line_covers(
+  "vertical line from (1.125, 1.875) to (1.125, 4.125)",
+  { Vec2(1.125f, 1.875f), Vec2(1.125f, 4.125f) },
+  {"...",
+   ".#.",
+   ".#.",
+   "...",
+   "..."}
+ );
+});
+
+// checks that reaching the top point through the diamond "exits" it
+Test test_a1_task2_diamond_top("a1.task2.more.diamond.top", []() {
+    check_line_covers("line reaches through diamond to its top (1,1)",
+                      {Vec2(0.5f, 0.0f), Vec2(1.5f, 2.0f)},
+                      {"...", 
+						".#.", 
+						"#.."});
+});
+
+// checks that reaching the top point not through the diamond doesn't "exit" it
+Test test_a1_task2_diamond_top_no_exit("a1.task2.more.diamond.top.no.exit", []() {
+    check_line_covers("line reaches not thorugh diamond to its top (1,1)",
+                      {Vec2(0.0f, 1.5f), Vec2(1.5f, 2.0f)},
+                      {"...", 
+						"#..", 
+						"..."});
+});
+
+// Checks a horizontal line on the edge of pixels start or end end on the bottom point of diamond
+Test test_a1_task2_horizontal_edge_end("a1.task2.more.horizontal.edge.end", []() {
+    check_line_covers("a horizontal line on the edge of pixels end on the bottom point of diamond",
+                      {Vec2(0.8f, 1.0f), Vec2(2.5f, 1.0f)},
+                      {"...", 
+						".#.", 
+						"..."});
+});
+
+Test test_a1_task2_horizontal_edge_start("a1.task2.more.horizontal.edge.start", []() {
+    check_line_covers("a horizontal line on the edge of pixels start on the bottom point of diamond",
+                      {Vec2(1.5f, 1.0f), Vec2(2.5f, 1.0f)},
+                      {"...", 
+						".#.", 
+						"..."});
+});
+
+// Check 45 degree line
+
+Test test_a1_task2_45("a1.task2.more.45", []() {
+    check_line_covers("a 45 line from (0.5, 1.0) to (1.5, 2.0)",
+                      {Vec2(0.5f, 1.0f), Vec2(1.5f, 2.0f)},
+                      {"...", 
+						"#.", 
+						"..."});
+});
