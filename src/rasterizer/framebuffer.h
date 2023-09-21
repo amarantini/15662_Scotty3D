@@ -29,11 +29,7 @@ struct Framebuffer {
 	std::vector<float> depths;
 
 	// return storage index for sample s of pixel (x,y):
-	uint32_t index(uint32_t x, uint32_t y, uint32_t s) const {
-		// A1T7: index
-		// TODO: update to provide different storage locations for different samples
-		return y * width + x;
-	}
+	uint32_t index(uint32_t x, uint32_t y, uint32_t s) const;
 
 	// helpers that look up colors and depths for sample s of pixel (x,y):
 	Spectrum& color_at(uint32_t x, uint32_t y, uint32_t s) {

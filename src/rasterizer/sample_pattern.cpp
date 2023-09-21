@@ -18,7 +18,7 @@ std::vector<SamplePattern> const& SamplePattern::all_patterns() {
 	};
 
 	// A1T7: sample pattern
-	auto CreateYourOwnSamplePattern = []() {
+	auto CreateYourOwnSamplePattern = [](uint32_t w, float angle=atan(0.5f)) {
 		// TODO: Create your own Sample Pattern
 		// Make any (literally any) SamplePattern that isn't one of the existing ones provided:
 		// ("Center", "Grid 2x2", "Grid 4x4", "Grid 8x8").
@@ -27,12 +27,24 @@ std::vector<SamplePattern> const& SamplePattern::all_patterns() {
 		// scenarios your SamplePattern would do well in vs do horribly in. The more complicated
 		// your SamplePattern is + more detailed your writeup is (such as with images or models for
 		// comparisons of these scenarios), the more extra credit can be awarded (no limit).
+		std::vector<Vec3> centers_and_weights;
+		centers_and_weights.reserve(w * w);
+		float weight = 1.0f / (w * w);
+		float sn = sin(angle);
+		float cs = cos(angle);
+		for (uint32_t y = 0; y < w; ++y) {
+			for (uint32_t x = 0; x < w; ++x) {
+				float sx = (x + 0.5f) / w, sy = (y + 0.5f) / w;
+				float rsx = sx * cs - sy * sn;
+				float rsy = sx * sn + y * cs;
+				centers_and_weights.emplace_back(rsx, rsy, weight);
+			}
+		}
 
 		// Please don't change the name or id
 		const uint32_t id = 0;
 		const std::string name = "Custom Sample Pattern";
 		// This will cause it to segfault when used, so be sure to change it!
-		std::vector<Vec3> centers_and_weights = {};
 		return SamplePattern(id, name, centers_and_weights);
 	};
 	static std::vector<SamplePattern> all = [&]() {
@@ -42,7 +54,7 @@ std::vector<SamplePattern> const& SamplePattern::all_patterns() {
 		ret.emplace_back(Grid(4));
 		ret.emplace_back(Grid(8));
 		// TODO: add some custom patterns here if you want!
-		ret.emplace_back(CreateYourOwnSamplePattern());
+		ret.emplace_back(CreateYourOwnSamplePattern(2));
 		return ret;
 	}();
 
