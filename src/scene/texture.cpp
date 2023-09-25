@@ -25,7 +25,6 @@ Spectrum sample_nearest(HDR_Image const &image, Vec2 uv) {
 Spectrum sample_bilinear(HDR_Image const &image, Vec2 uv) {
 	// A1T6: sample_bilinear
 	//TODO: implement bilinear sampling strategy on texture 'image'
-
 	float fx = uv[0]*image.w;
 	float fy = uv[1]*image.h;
 
@@ -149,7 +148,6 @@ void generate_mipmap(HDR_Image const &base, std::vector< HDR_Image > *levels_) {
 			}
 		}
 		//Be aware that the alignment of the samples in dst and src will be different depending on whether the image is even or odd.
-
 	};
 
 	std::cout << "Regenerating mipmap (" << levels.size() << " levels): [" << base.w << "x" << base.h << "]";
