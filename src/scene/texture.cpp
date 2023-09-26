@@ -25,36 +25,37 @@ Spectrum sample_nearest(HDR_Image const &image, Vec2 uv) {
 Spectrum sample_bilinear(HDR_Image const &image, Vec2 uv) {
 	// A1T6: sample_bilinear
 	//TODO: implement bilinear sampling strategy on texture 'image'
-	float fx = uv[0]*image.w;
-	float fy = uv[1]*image.h;
+	float fx = int32_t(image.w) * std::clamp(uv.x, 0.0f, 1.0f);
+	float fy = int32_t(image.h) * std::clamp(uv.y, 0.0f, 1.0f);
+	int32_t w = int32_t(image.w);
+	int32_t h = int32_t(image.h);
+	
+	int32_t x = std::max(std::min(static_cast<int32_t>(floor(fx-0.5f)),w-1),0);
+	int32_t y = std::max(std::min(static_cast<int32_t>(std::floor(fy-0.5f)),h-1),0);
+	// int32_t x = std::min(int32_t(std::floor(fx)),int32_t(image.w)-1);
+	// int32_t y = std::min(int32_t(std::floor(fy)),int32_t(image.h)-1);
+	int32_t x1,y1;
 
-	// uint32_t x = std::min(static_cast<uint32_t>(floor(fx-0.5)),image.w-1u);
-	// uint32_t y = std::min(static_cast<uint32_t>(floor(fy-0.5)),image.h-1u);
-	uint32_t x = std::min(static_cast<uint32_t>(floor(fx)),image.w-1u);
-	uint32_t y = std::min(static_cast<uint32_t>(floor(fy)),image.h-1u);
-	uint32_t x1,y1;
-
-	if(fx >= x+0.5f) {
-		x1 = std::min(x + 1, image.w-1);
-	} else {
-		if(x==0u){
-			x1 = 0u;
-		} else
-			x1 = std::max(std::min(x - 1,image.w-1), 0u);
+	// if(fx >= x+0.5f) {
+	// 	x1 = std::min(x + 1, int32_t(image.w)-1);
+	// } else {
+		x1 = std::max(std::min(x + 1,w-1), 0);
+	// }
+	// if(fy>=y+0.5f){
+	// 	y1 = std::min(y + 1, int32_t(image.h)-1);
+	// } else {
+		y1 = std::max(std::min(y + 1,h-1), 0);
+	// }
+	if(x>w || y>h || x1>w || y1>h){
+		log("u,v: "+to_string(uv)+"\n");
+		log("x,y: "+std::to_string(x)+","+std::to_string(y)+"\n");
+		log("x1,y1: "+std::to_string(x1)+","+std::to_string(y1)+"\n");
 	}
-	if(fy>=y+0.5){
-		y1 = std::min(y + 1, image.h-1);
-	} else {
-		if(y==0u)
-			y1 = 0u;
-		else
-			y1 = std::max(std::min(y - 1,image.h-1u), 0u);
-	}
 
-	// float dx = fx - floor(fx-0.5);
-	// float dy = fy - floor(fy-0.5);
-	float dx = std::abs(fx - floor(fx) - 0.5);
-	float dy = std::abs(fy - floor(fy) - 0.5);
+	float dx = fx - 0.5f - float(x);
+	float dy = fy - 0.5f - float(y);
+	// float dx = std::abs(fx - std::floor(fx) - 0.5);
+	// float dy = std::abs(fy - std::floor(fy) - 0.5);
 
 	Spectrum t_xy = image.at(x,y);
 	Spectrum t_x1y = image.at(x1,y);

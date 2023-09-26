@@ -707,8 +707,8 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 			float px = i+0.5;
 			float py = j+0.5;
 			auto[u, v, w] = compute_barycentric(px, py, va.fb_position, vb.fb_position, vc.fb_position);
-			// float pz = interpolate(u,v,w,va.fb_position.z,vb.fb_position.z,vc.fb_position.z);
-			float pz = pers_correct_interpolate(u,v,w,va.fb_position.z,vb.fb_position.z,vc.fb_position.z,va.inv_w,vb.inv_w,vc.inv_w);
+			float pz = interpolate(u,v,w,va.fb_position.z,vb.fb_position.z,vc.fb_position.z);
+			// float pz = pers_correct_interpolate(u,v,w,va.fb_position.z,vb.fb_position.z,vc.fb_position.z,va.inv_w,vb.inv_w,vc.inv_w);
 			if(inside_triangle(px, py, pz)) {
 				Fragment frag;
 				frag.fb_position = Vec3{px, py, pz};
