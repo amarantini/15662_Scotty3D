@@ -70,7 +70,7 @@ checking that rasterizing with different blend and depth modes will look decent.
 
 Reference image:
 <div class="twentytwenty-container">
-    <img src="A1-writeup/reference/task5-smooth-correct-triangles.png" alt="Rasterize smooth and correct cubes">
+    <img src="A1-writeup/student/task5-smooth-correct-triangles.png" alt="Rasterize smooth and correct cubes">
 </div>
 Please replace the above image with your own screenshot of the rasterized smooth and correct triangles cubes.
 This can be done by doing the following:
@@ -92,10 +92,15 @@ checking that rasterizing the samplers scene will look decent.
 
 Insert a picture of your sample pattern here (up to you on how you created it):
 <div class="twentytwenty-container">
-    <img src="A1-writeup/reference/task7-sample-pattern.png" alt="Sample pattern">
+    <img src="A1-writeup/student/task7-sample-pattern.png" alt="Sample pattern">
 </div>
 
 Explanation of what your SamplePattern does and scenarios it would do well and poorly in:
+
+This is a rotated 2x2 grid sample pattern. Comparing to grid sample pattern, each sample in the 
+grid is rotated by an angle so that the samples no longer align with the horizontal or vertical 
+axis. This performs better for axis-aligned alias, for example vertical or horizontal lines.  
+However, it performs poorly if the alias align with the rotation angle.
 
 Your completion will be graded based on the above answer, the reference `test.a1.task7.cpp` file and 
 checking that rasterizing the samplers scene will look decent.
@@ -104,11 +109,16 @@ checking that rasterizing the samplers scene will look decent.
 
 Your image:
 <div class="twentytwenty-container">
-    <img src="A1-writeup/reference/rasterize_image.png" alt="Your creation">
+    <img src="A1-writeup/student/rasterize_image_2cats.png" alt="Your creation">
 </div>
 Explanation of what it is and how you made it:
 
+This is a scene of two cats, a floor and a wall. The scene is stored in cat.js3d. 
+
 Any free model sources you need to credit?
+
+I downloaded the cat's 3D model from Free3D.
+(link: https://free3d.com/3d-model/cute-fat-cat-obj-997368.html)
 
 (##) EXTRA CREDIT FINAL
 
@@ -116,7 +126,14 @@ Use this section to explain any extra credit implementations you have made.
 
 (##) Feedback
 
-Use this section to provide feedback about the assignment.
+There are some weird bugs in my current implementation.
+My line rasterzation worked at A1.0 checkpoint.
+However, after implementing T5 to T7, some edges of a Depth Less wireframe cube 
+went missing. A Depth Always wireframe cube looks correct though.
+A TA looked over my code and could not find the bug. 
+<div class="twentytwenty-container">
+    <img src="A1-writeup/student/missingEdges.png" alt="First cube is Depth Less. Second cube is Depth Always">
+</div>
 
 <!--- Markdeep & image comparison library - probably no need to change anything below -->
 <style class="fallback">body{visibility:hidden;white-space:pre;font-family:monospace}</style>

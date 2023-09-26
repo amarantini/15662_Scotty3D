@@ -24,9 +24,12 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 	//   	 around some subset of the code.
 	// 		 You will also need to transform the input and output of the rasterize_* functions to
 	// 	     account for the fact they deal with pixels centered at (0.5,0.5).
+	std::vector< Vec3 > const &samples = framebuffer.sample_pattern.centers_and_weights;
+	int sample_size = samples.size();
+	for (uint32_t s = 0; s < sample_size; ++s) {
 
-	std::vector<ShadedVertex> shaded_vertices;
-	shaded_vertices.reserve(vertices.size());
+		std::vector<ShadedVertex> shaded_vertices;
+		shaded_vertices.reserve(vertices.size());
 
 	//--------------------------
 	// shade vertices:
@@ -90,7 +93,8 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 
 	//--------------------------
 	// rasterize primitives:
-
+	std::vector< Vec3 > const &samples = framebuffer.sample_pattern.centers_and_weights;
+	for (uint32_t s = 0; s < samples.size(); ++s) {
 	std::vector<Fragment> fragments;
 
 	// helper used to put output of rasterization functions into fragments:
@@ -99,11 +103,26 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 	// actually do rasterization:
 	if constexpr (primitive_type == PrimitiveType::Lines) {
 		for (uint32_t i = 0; i + 1 < clipped_vertices.size(); i += 2) {
-			rasterize_line(clipped_vertices[i], clipped_vertices[i + 1], emit_fragment);
+			auto cv1 = clipped_vertices[i];
+			cv1.fb_position.x = cv1.fb_position.x - 0.5f + samples[s][0];
+			cv1.fb_position.y = cv1.fb_position.y - 0.5f + samples[s][1];
+			auto cv2 = clipped_vertices[i+1];
+			cv2.fb_position.x = cv2.fb_position.x - 0.5f + samples[s][0];
+			cv2.fb_position.y = cv2.fb_position.y - 0.5f + samples[s][1];
+			rasterize_line(cv1, cv2, emit_fragment);
 		}
 	} else if constexpr (primitive_type == PrimitiveType::Triangles) {
 		for (uint32_t i = 0; i + 2 < clipped_vertices.size(); i += 3) {
-			rasterize_triangle(clipped_vertices[i], clipped_vertices[i + 1], clipped_vertices[i + 2], emit_fragment);
+			auto cv1 = clipped_vertices[i];
+			cv1.fb_position.x = cv1.fb_position.x - 0.5f + samples[s][0];
+			cv1.fb_position.y = cv1.fb_position.y - 0.5f + samples[s][1];
+			auto cv2 = clipped_vertices[i+1];
+			cv2.fb_position.x = cv2.fb_position.x - 0.5f + samples[s][0];
+			cv2.fb_position.y = cv2.fb_position.y - 0.5f + samples[s][1];
+			auto cv3 = clipped_vertices[i+2];
+			cv3.fb_position.x = cv3.fb_position.x - 0.5f + samples[s][0];
+			cv3.fb_position.y = cv3.fb_position.y - 0.5f + samples[s][1];
+			rasterize_triangle(cv1, cv2, cv3, emit_fragment);
 		}
 	} else {
 		static_assert(primitive_type == PrimitiveType::Lines, "Unsupported primitive type.");
@@ -129,8 +148,8 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 		}
 
 		// local names that refer to destination sample in framebuffer:
-		float& fb_depth = framebuffer.depth_at(x, y, 0);
-		Spectrum& fb_color = framebuffer.color_at(x, y, 0);
+		float& fb_depth = framebuffer.depth_at(x, y, s);
+		Spectrum& fb_color = framebuffer.color_at(x, y, s);
 
 
 		// depth test:
@@ -181,13 +200,15 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 	if (out_of_range > 0) {
 		if constexpr (primitive_type == PrimitiveType::Lines) {
 			warn("Produced %d fragments outside framebuffer; this indicates something is likely "
-			     "wrong with the clip_line function.",
-			     out_of_range);
+				"wrong with the clip_line function.",
+				out_of_range);
 		} else if constexpr (primitive_type == PrimitiveType::Triangles) {
 			warn("Produced %d fragments outside framebuffer; this indicates something is likely "
-			     "wrong with the clip_triangle function.",
-			     out_of_range);
+				"wrong with the clip_triangle function.",
+				out_of_range);
 		}
+	}
+	}
 	}
 }
 
@@ -359,7 +380,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 		assert(0 && "rasterize_line should only be invoked in flat interpolation mode.");
 	}
 	// A1T2: rasterize_line
-	float epsilon = 0.001f;
+	float epsilon = 0.0001f;
 	Vec2 a = va.fb_position.xy() + Vec2{epsilon,epsilon*epsilon};
 	Vec2 b = vb.fb_position.xy() + Vec2{epsilon,epsilon*epsilon};
 	float a_z = va.fb_position.z;
@@ -388,7 +409,7 @@ void Pipeline<p, P, flags>::rasterize_line(
 	float px_b = floor(x_b) + 0.5;
 	float py_b = floor(y_b) + 0.5;
 
-	// Starting coordinate has smaller value along lnger axis
+	// Starting coordinate has smaller value along longer axis
 	if(a[i] > b[i]) {
 		std::swap(a, b);
 		d_x = -d_x;
@@ -549,184 +570,208 @@ void Pipeline<p, P, flags>::rasterize_triangle(
 	//  same code paths. Be aware, however, that all of them need to remain working!
 	//  (e.g., if you break Flat while implementing Correct, you won't get points
 	//   for Flat.)
-	if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
-		// A1T3: flat triangles
-		// TODO: rasterize triangle (see block comment above this function).
+	float epsilon = 0.00001f;
+	Vec3 a = va.fb_position;
+	Vec3 b = vb.fb_position;
+	Vec3 c = vc.fb_position;
 
-		// As a placeholder, here's code that draws some lines:
-		//(remove this and replace it with a real solution)
-		float epsilon = 0.001f;
-		Vec3 a = va.fb_position;
-		Vec3 b = vb.fb_position;
-		Vec3 c = vc.fb_position;
-		
-		if(cross((c-a),(b-a)).z < 0){
-			Vec3 tmp = c;
-			c = b;
-			b = tmp;
-		}
-		log("After\n");
-		log("a: "+to_string(a)+"\n");
-		log("b: "+to_string(b)+"\n");
-		log("c: "+to_string(c)+"\n");
-		// std::vector<Vec3> vec{a,b,c};
-		// sort(vec.begin(),vec.end());
-		// a = vec[0];
-		// b = vec[1];
-		// c = vec[2];
-
-		float left = floor(std::fmin(a[0],std::fmin(b[0],c[0])));
-		float right = floor(std::fmax(a[0],std::fmax(b[0],c[0])));
-		float bottom = floor(std::fmin(a[1],std::fmin(b[1],c[1])));
-		float top = floor(std::fmax(a[1],std::fmax(b[1],c[1])));
-
-		auto shade = [&](float px, float py, float pz){
-			Fragment frag;
-			frag.fb_position = Vec3{px, py, pz};;
-			frag.attributes = va.attributes;
-			frag.derivatives.fill(Vec2(0.0f, 0.0f)); 
-			emit_fragment(frag);
-		};
-
-		auto compute_barycentric = [&](float x, float y)
-		{
-			float u = (x*(b[1] - c[1]) + (c[0] - b[0])*y + b[0]*c[1] - c[0]*b[1]) / (a[0]*(b[1] - c[1]) + (c[0] - b[0])*a[1] + b[0]*c[1] - c[0]*b[1]);
-			float v = (x*(c[1] - a[1]) + (a[0] - c[0])*y + c[0]*a[1] - a[0]*c[1]) / (b[0]*(c[1] - a[1]) + (a[0] - c[0])*b[1] + c[0]*a[1] - a[0]*c[1]);
-			float w = (x*(a[1] - b[1]) + (b[0] - a[0])*y + a[0]*b[1] - b[0]*a[1]) / (c[0]*(a[1] - b[1]) + (b[0] - a[0])*c[1] + a[0]*b[1] - b[0]*a[1]);
-			return std::tuple{u,v,w};
-		};
-
-		Vec3 top_edge, top_edge_v;
-		Vec3 left_edge_1, left_edge_v_1;
-		Vec3 left_edge_2, left_edge_v_2;
-		bool has_top_edge = false;
-		bool has_left_edge_1 = false;
-		bool has_left_edge_2 = false;
-
-		auto find_top_edge = [&]() {
-			Vec3 ab = b-a;
-			Vec3 bc = c-b;
-			Vec3 ca = c-a;
-			if(std::abs(ab[1])<epsilon && a[1]>c[1]){
-				top_edge = ab;
-				top_edge_v = a;
-			} else if(std::abs(bc[1])<epsilon && b[1]>a[1]){
-				top_edge = bc;
-				top_edge_v = b;
-			} else if(std::abs(ca[1])<epsilon && c[1]>b[1]){
-				top_edge = ca;
-				top_edge_v = c;
-			} else {
-				return;
-			}
-			has_top_edge = true;
-		};
-
-		auto find_left_edge = [&]() {
-			
-			Vec3 ab = b-a;
-			Vec3 bc = c-b;
-			Vec3 ca = a-c;
-			if(ab[1]>0) {
-				left_edge_1 = ab;
-				left_edge_v_1 = a;
-				has_left_edge_1 = true;
-			}
-			if(bc[1]>0) {
-				if(!has_left_edge_1) {
-					left_edge_1 = bc;
-					left_edge_v_1 = b;
-					has_left_edge_1 = true;
-				} else {
-					left_edge_2 = bc;
-					left_edge_v_2 = b;
-					has_left_edge_2 = true;
-				}
-				
-			}
-			if(ca[1]>0) {
-				if(!has_left_edge_1) {
-					left_edge_1 = ca;
-					left_edge_v_1 = c;
-					has_left_edge_1 = true;
-				} else {
-					left_edge_2 = ca;
-					left_edge_v_2 = c;
-					has_left_edge_2 = true;
-				}
-			}
-			
-		};
-
-		find_top_edge();
-		find_left_edge();
-
-		log("top edge: "+to_string(top_edge)+"\n");
-		log("left edge 1: "+to_string(left_edge_1)+"\n");
-		log("left edge 2: "+to_string(left_edge_2)+"\n");
-
-		auto on_edge = [=](Vec3 edge, Vec3 vert, Vec3 pt){
-			if(cross(pt-vert, edge)==Vec3())
-				log(to_string(pt)+" on edge "+to_string(edge)+"\n");
-			return cross(pt-vert, edge)==Vec3();
-		};	
-
-		auto same_side = [=](Vec3& a, Vec3& b, Vec3& c, Vec3& pt){
-			Vec3 ac_cross_ab = cross(c-a,b-a);
-			Vec3 ac_cross_ap = cross(c-a,pt-a);
-			return dot(ac_cross_ab,ac_cross_ap);
-		};
-
-		auto inside_triangle = [&](float x, float y, float z)
-		{   
-			Vec3 pt = Vec3{x,y,z};
-			float same_side_1 = same_side(a,b,c,pt);
-			float same_side_2 = same_side(b,c,a,pt);
-			float same_side_3 = same_side(c,a,b,pt);
-			if(same_side_1>=0 && same_side_2>=0 && same_side_3>=0) {
-				if (std::abs(same_side_1)<epsilon || std::abs(same_side_2)<epsilon || std::abs(same_side_3)<epsilon) {
-				
-					bool is_on_edge = (has_top_edge && on_edge(top_edge, top_edge_v, pt)) ||
-						(has_left_edge_1 && on_edge(left_edge_1, left_edge_v_1, pt)) ||
-						(has_left_edge_2 && on_edge(left_edge_2, left_edge_v_2, pt));
-					log("on edge: "+ std::to_string(is_on_edge)+"\n");
-					return is_on_edge;
-				}
-				log(to_string(pt)+ " inside triangle\n");
-				return true;
-			}
-			
-
-			return false;
-		};
-			
-		for(float i=left; i<=right; i++){
-			for(float j=bottom; j<=top; j++) {
-				float px = i+0.5;
-				float py = j+0.5;
-				auto[u, v, w] = compute_barycentric(px, py);
-				float pz = u*a[2]+v*b[2]+w*c[2];
-				Vec3 pt = Vec3(px,py,pz);
-				if(inside_triangle(px, py, pz)) {
-					shade(px,py,pz);
-				}
-			}
-		}
-	} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Smooth) {
-		// A1T5: screen-space smooth triangles
-		// TODO: rasterize triangle (see block comment above this function).
-
-		// As a placeholder, here's code that calls the Flat interpolation version of the function:
-		//(remove this and replace it with a real solution)
-		Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Flat>::rasterize_triangle(va, vb, vc, emit_fragment);
-	} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct) {
-		// A1T5: perspective correct triangles
-		// TODO: rasterize triangle (block comment above this function).
-
-		// As a placeholder, here's code that calls the Screen-space interpolation function:
-		//(remove this and replace it with a real solution)
-		Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Smooth>::rasterize_triangle(va, vb, vc, emit_fragment);
+	if(std::abs(cross(b-a,c-a).norm())<epsilon) {
+		return;
 	}
+	
+	if(cross((c-a),(b-a)).z < 0){
+		Vec3 tmp = c;
+		c = b;
+		b = tmp;
+	}
+
+	float left = floor(std::fmin(a[0],std::fmin(b[0],c[0])));
+	float right = floor(std::fmax(a[0],std::fmax(b[0],c[0])));
+	float bottom = floor(std::fmin(a[1],std::fmin(b[1],c[1])));
+	float top = floor(std::fmax(a[1],std::fmax(b[1],c[1])));
+
+	Vec3 top_edge, top_edge_v;
+	Vec3 left_edge_1, left_edge_v_1;
+	Vec3 left_edge_2, left_edge_v_2;
+	bool has_top_edge = false;
+	bool has_left_edge_1 = false;
+	bool has_left_edge_2 = false;
+
+	auto find_top_edge = [&]() {
+		Vec3 ab = b-a;
+		Vec3 bc = c-b;
+		Vec3 ca = c-a;
+		if(std::abs(ab[1])<epsilon && a[1]>c[1]){
+			top_edge = ab;
+			top_edge_v = a;
+		} else if(std::abs(bc[1])<epsilon && b[1]>a[1]){
+			top_edge = bc;
+			top_edge_v = b;
+		} else if(std::abs(ca[1])<epsilon && c[1]>b[1]){
+			top_edge = ca;
+			top_edge_v = c;
+		} else {
+			return;
+		}
+		has_top_edge = true;
+	};
+
+	auto find_left_edge = [&]() {
+		Vec3 ab = b-a;
+		Vec3 bc = c-b;
+		Vec3 ca = a-c;
+		if(ab[1]>0) {
+			left_edge_1 = ab;
+			left_edge_v_1 = a;
+			has_left_edge_1 = true;
+		}
+		if(bc[1]>0) {
+			if(!has_left_edge_1) {
+				left_edge_1 = bc;
+				left_edge_v_1 = b;
+				has_left_edge_1 = true;
+			} else {
+				left_edge_2 = bc;
+				left_edge_v_2 = b;
+				has_left_edge_2 = true;
+			}
+			
+		}
+		if(ca[1]>0) {
+			if(!has_left_edge_1) {
+				left_edge_1 = ca;
+				left_edge_v_1 = c;
+				has_left_edge_1 = true;
+			} else {
+				left_edge_2 = ca;
+				left_edge_v_2 = c;
+				has_left_edge_2 = true;
+			}
+		}
+		
+	};
+
+	find_top_edge();
+	find_left_edge();
+
+	auto on_edge = [=](Vec3 edge, Vec3 vert, Vec3 pt){
+		return cross(pt-vert, edge)==Vec3();
+	};	
+
+	auto same_side = [=](Vec3& a, Vec3& b, Vec3& c, Vec3& pt){
+		Vec3 ac_cross_ab = cross(c-a,b-a);
+		Vec3 ac_cross_ap = cross(c-a,pt-a);
+		return dot(ac_cross_ab,ac_cross_ap);
+	};
+
+	auto inside_triangle = [&](const float x, const float y, const float z)
+	{   
+		Vec3 pt = Vec3{x,y,z};
+		float same_side_1 = same_side(a,b,c,pt);
+		float same_side_2 = same_side(b,c,a,pt);
+		float same_side_3 = same_side(c,a,b,pt);
+		if(same_side_1>=0 && same_side_2>=0 && same_side_3>=0) {
+			if (std::abs(same_side_1)<epsilon || std::abs(same_side_2)<epsilon || std::abs(same_side_3)<epsilon) {
+				bool is_on_edge = (has_top_edge && on_edge(top_edge, top_edge_v, pt)) ||
+					(has_left_edge_1 && on_edge(left_edge_1, left_edge_v_1, pt)) ||
+					(has_left_edge_2 && on_edge(left_edge_2, left_edge_v_2, pt));
+				return is_on_edge;
+			}
+			return true;
+		}
+		return false;
+	};
+
+	auto compute_barycentric = [=](float x, float y, Vec3 a, Vec3 b, Vec3 c)
+	{
+		float u = (x*(b[1] - c[1]) + (c[0] - b[0])*y + b[0]*c[1] - c[0]*b[1]) / (a[0]*(b[1] - c[1]) + (c[0] - b[0])*a[1] + b[0]*c[1] - c[0]*b[1]);
+		float v = (x*(c[1] - a[1]) + (a[0] - c[0])*y + c[0]*a[1] - a[0]*c[1]) / (b[0]*(c[1] - a[1]) + (a[0] - c[0])*b[1] + c[0]*a[1] - a[0]*c[1]);
+		float w = (x*(a[1] - b[1]) + (b[0] - a[0])*y + a[0]*b[1] - b[0]*a[1]) / (c[0]*(a[1] - b[1]) + (b[0] - a[0])*c[1] + a[0]*b[1] - b[0]*a[1]);
+		return std::tuple{u,v,w};
+	};
+
+	auto interpolate = [=](float u, float v, float w, float x, float y, float z){
+		return u*x + v*y + w*z;
+	};
+
+	auto pers_correct_interpolate = [=](float u,float v, float w, 
+										float a_attr, float b_attr, float c_attr,
+										float a_inv_w, float b_inv_w, float c_inv_w){
+		float interpolated_attr_w_inv = interpolate(u,v,w,a_attr*a_inv_w,b_attr*b_inv_w,c_attr*c_inv_w);
+		float interpolated_w_inv = interpolate(u,v,w,a_inv_w,b_inv_w,c_inv_w);
+		return interpolated_attr_w_inv/interpolated_w_inv;
+	};
+
+	for(float i=left; i<=right; i++){
+		for(float j=bottom; j<=top; j++) {
+			float px = i+0.5;
+			float py = j+0.5;
+			auto[u, v, w] = compute_barycentric(px, py, va.fb_position, vb.fb_position, vc.fb_position);
+			// float pz = interpolate(u,v,w,va.fb_position.z,vb.fb_position.z,vc.fb_position.z);
+			float pz = pers_correct_interpolate(u,v,w,va.fb_position.z,vb.fb_position.z,vc.fb_position.z,va.inv_w,vb.inv_w,vc.inv_w);
+			if(inside_triangle(px, py, pz)) {
+				Fragment frag;
+				frag.fb_position = Vec3{px, py, pz};
+				
+				if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat) {
+					// A1T3: flat triangles
+					// TODO: rasterize triangle (see block comment above this function).
+
+					// As a placeholder, here's code that draws some lines:
+					//(remove this and replace it with a real solution)
+					frag.attributes = va.attributes;
+					frag.derivatives.fill(Vec2(0.0f, 0.0f)); 
+				} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Smooth) {
+					// A1T5: screen-space smooth triangles
+					// TODO: rasterize triangle (see block comment above this function).
+
+					// As a placeholder, here's code that calls the Flat interpolation version of the function:
+					//(remove this and replace it with a real solution)
+					//Forward difference - dx
+					auto[u1, v1, w1] = compute_barycentric(px+1.0f, py, va.fb_position, vb.fb_position, vc.fb_position);
+					//Forward difference - dy
+					auto[u2, v2, w2] = compute_barycentric(px, py+1.0f, va.fb_position, vb.fb_position, vc.fb_position);
+					for(long unsigned int i=0; i<va.attributes.size(); i++) {
+						frag.attributes[i] = interpolate(u,v,w,va.attributes[i],vb.attributes[i],vc.attributes[i]);
+					}
+					for(long unsigned int i=0; i<2; i++) {
+						frag.derivatives[i] = Vec2{
+							interpolate(u1,v1,w1,va.attributes[i],vb.attributes[i],vc.attributes[i]) - frag.attributes[i],
+							interpolate(u2,v2,w2,va.attributes[i],vb.attributes[i],vc.attributes[i]) - frag.attributes[i]
+						};
+					}
+					
+					
+				} else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct) {
+					// A1T5: perspective correct triangles
+					// TODO: rasterize triangle (block comment above this function).
+
+					// As a placeholder, here's code that calls the Screen-space interpolation function:
+					//(remove this and replace it with a real solution)
+					//Forward difference - dx
+					auto[u1, v1, w1] = compute_barycentric(px+1.0f, py, va.fb_position, vb.fb_position, vc.fb_position);
+					//Forward difference - dy
+					auto[u2, v2, w2] = compute_barycentric(px, py+1.0f, va.fb_position, vb.fb_position, vc.fb_position);
+					for(long unsigned int i=0; i<va.attributes.size(); i++) {
+						frag.attributes[i] = pers_correct_interpolate(u,v,w,va.attributes[i],vb.attributes[i],vc.attributes[i],va.inv_w,vb.inv_w,vc.inv_w);	
+					}
+					for(long unsigned int i=0; i<2; i++) {
+						frag.derivatives[i] = Vec2{
+							pers_correct_interpolate(u1,v1,w1,va.attributes[i],vb.attributes[i],vc.attributes[i],va.inv_w,vb.inv_w,vc.inv_w)
+							- frag.attributes[i],
+							pers_correct_interpolate(u2,v2,w2,va.attributes[i],vb.attributes[i],vc.attributes[i],va.inv_w,vb.inv_w,vc.inv_w)
+							- frag.attributes[i]
+						};
+					}
+					
+				}
+				emit_fragment(frag);
+			}
+		}
+	}
+
+
+	
 }
 
 //-------------------------------------------------------------------------
