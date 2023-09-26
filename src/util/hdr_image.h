@@ -41,10 +41,6 @@ public:
 		return pixels[y * w + x];
 	}
 	Spectrum const &at(uint32_t x, uint32_t y) const {
-		if(x>=w || y>=h){
-			log("w,h: "+std::to_string(w)+","+std::to_string(h)+"\n");
-			log("x,y: "+std::to_string(x)+","+std::to_string(y)+"\n");
-		}
 		assert(x < w && y < h);
 		return pixels[y * w + x];
 	}
