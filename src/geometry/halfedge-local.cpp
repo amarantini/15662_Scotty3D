@@ -527,25 +527,18 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	FaceRef f1 = h->face;
 	FaceRef f2 = t->face;
 
+	// edge case: a vertex only has 2 edges
+	if(v1->degree()<=2 || v2->degree()<=2){
+		return std::nullopt;
+	}
+
 	// disconnect
-	HalfedgeRef old_v1_he = v1->halfedge;
-	HalfedgeRef old_v2_he = v2->halfedge;
-	HalfedgeRef old_f1_he = f1->halfedge;
-	HalfedgeRef old_f2_he = f1->halfedge;
 	v1->halfedge = h->next;
 	v2->halfedge = t->next;
 	f1->halfedge = h;
 	f2->halfedge = t;
 
 	// connect
-	VertexRef old_t_vertex = t->vertex;
-	VertexRef old_h_vertex = h->vertex;
-	HalfedgeRef old_h_next = h->next;
-	HalfedgeRef old_t_next = t->next;
-	HalfedgeRef old_h_next_next = h_next->next;
-	HalfedgeRef old_t_next_next = t_next->next;
-	FaceRef old_h_next_face = h_next->face;
-	FaceRef old_t_next_face = t_next->face;
 	t->vertex = v3;
 	h->vertex = v4;
 	h->next = h_next->next;
@@ -559,38 +552,13 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	while(h_last->next != h){
 		h_last = h_last->next;
 	}
-	HalfedgeRef old_h_last_next = h_last->next;
 	h_last->next = t_next;
 
 	HalfedgeRef t_last = t;
 	while(t_last->next != t){
 		t_last = t_last->next;
 	}
-	HalfedgeRef old_t_last_next = t_last->next;
 	t_last->next = h_next;
-
-	auto validated = validate();
-	if(validated!=std::nullopt) {
-		log(validated->second);
-		// restore
-		t_last->next = old_t_last_next;
-		h_last->next = old_h_last_next;
-
-		t->vertex = old_t_vertex;
-		h->vertex = old_h_vertex;
-		h->next = old_h_next;
-		t->next = old_t_next;
-		h_next->next = old_h_next_next;
-		t_next->next = old_t_next_next;
-		h_next->face = old_h_next_face;
-		t_next->face = old_t_next_face;
-
-		v1->halfedge = old_v1_he;
-		v2->halfedge = old_v2_he;
-		f1->halfedge = old_f1_he;
-		f1->halfedge = old_f2_he;
-		return std::nullopt;
-	}
 
 	return e;
 }
