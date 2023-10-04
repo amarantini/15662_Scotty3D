@@ -96,3 +96,19 @@ Test test_a2_l1_flip_edge_edge_boundary("a2.l1.flip_edge.edge.boundary", []() {
 	}
 });
 
+// Test test_a2_l1_flip_edge_2triangle_nonconvex("a2.l1.flip_edge.2triangle.nonconvex", []() {
+// 	Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+// 					Vec3(0.1f, 1.1f, 0.0f), 
+// 		            Vec3(0.1f, 0.0f, 0.0f),
+// 		Vec3(-1.3f,-0.7f, 0.0f), Vec3(1.4f, -1.0f, 0.0f)
+// 	}, {
+// 		{0, 2, 1}, 
+// 		{0, 1, 3},
+// 	});
+// 	Halfedge_Mesh::EdgeRef edge = mesh.halfedges.begin()->next->next->edge;
+
+// 	if (mesh.flip_edge(edge)) {
+// 		throw Test::error("flip_edge should not work in convex polygon.");
+// 	}
+// });
+

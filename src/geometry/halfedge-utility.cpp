@@ -446,6 +446,7 @@ static std::string to_string(T const *addr) {
 
 std::optional<std::pair<Halfedge_Mesh::ElementCRef, std::string>> Halfedge_Mesh::validate() const {
 
+
 	//helpers for error messages:
 	auto describe_vertex   = [](VertexCRef v)   { return "Vertex with id " + std::to_string(v->id); };
 	auto describe_edge     = [](EdgeCRef e)     { return "Edge with id " + std::to_string(e->id); };

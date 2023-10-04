@@ -22,6 +22,11 @@ You do not need any screenshots for this task.
 
 *  Answer here:
 
+<!-- If the 2 faces adjacent to the edge form a convex polygon, and the interior angles at 2 vertices 
+of the edge in the 2-face polygon is larger than 180 degree, the flipped edge will form a
+new face (this include the case where the flipped edge overlap with an existing edge, then add
+2 more edges to create the new face). -->
+
 Your completion will be graded based on the reference `test.a2.l1.cpp` file and 
 checking that the operation works in the GUI.
 
@@ -33,6 +38,8 @@ You do not need any screenshots for this task.
 
 *  Answer here:
 
+For edge on boundary, split edge only create 1 more face.
+
 Your completion will be graded based on the reference `test.a2.l2.cpp` file and 
 checking that the operation works in the GUI.
 
@@ -43,6 +50,20 @@ You do not need any screenshots for this task.
 **What edge cases did you handle?**
 
 *  Answer here:
+
+- Collapsing some edge after collapsing will result in non-manifold shape. I cheked for these cases
+and abort operation if the operation is illegal. The illegal cases are:
+    - The edge to collapse is not on boundary, AND 2 vertices are on bounary face AND
+        - 2 vertices they have no common neighbors, e.g. 2 rectangle case, OR
+        - The edges between the common neighbors of 2 vertices, v1->n and v2->n, are not on boundary
+- If the edge to collapse is the edge of one or more triangle, then the faces adjacent to it become degenerating faces.
+There are 4 cases:
+    - If the upper face of edge e is a triangle, then collapse upper face.
+    - If the lower face of edge e is a triangle, then collapse lower face.
+    - If both adjacent faces of edge e are triangles, then collapse both faces.
+    - If both adjacent faces of edge e are triangles and they are on boundary, i.e.
+    at least 3 edges of the quad shape made of 2 triangles are on boundary, then collapse both faces
+    and delete the vertex that is owned by only the triangles but not other faces.
 
 Your completion will be graded based on the reference `test.a2.l3.cpp` file and 
 checking that the operation works in the GUI.

@@ -46,11 +46,6 @@ Spectrum sample_bilinear(HDR_Image const &image, Vec2 uv) {
 	// } else {
 		y1 = std::max(std::min(y + 1,h-1), 0);
 	// }
-	if(x>w || y>h || x1>w || y1>h){
-		log("u,v: "+to_string(uv)+"\n");
-		log("x,y: "+std::to_string(x)+","+std::to_string(y)+"\n");
-		log("x1,y1: "+std::to_string(x1)+","+std::to_string(y1)+"\n");
-	}
 
 	float dx = fx - 0.5f - float(x);
 	float dy = fy - 0.5f - float(y);
