@@ -14,7 +14,7 @@ AndrewID: XXXX
 
 * Include descriptions of any encountered problems and the time you spent on each task.
 
-(##) A2L1 CHECKPOINT
+(##) A2L1 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
@@ -28,18 +28,19 @@ this will create a vertex with a single edge which makes the shape non-manifold.
 Your completion will be graded based on the reference `test.a2.l1.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2L2 CHECKPOINT
+(##) A2L2 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+There is no edge case.
 
 Your completion will be graded based on the reference `test.a2.l2.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2L3 CHECKPOINT
+(##) A2L3 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
@@ -64,41 +65,45 @@ There are 4 cases:
 Your completion will be graded based on the reference `test.a2.l3.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2L4 CHECKPOINT
+(##) A2L4 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+There is no edge case.
+
+I update the normal of half edges in extrude_position. In the case the area of the face is 0, 
+keep the normal as before to avoid NAN values. 
 
 Your completion will be graded based on the reference `test.a2.l4.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2G1 FINAL
+(##) A2G1 FINAL 
 
 You do not need any screenshots for this task. 
 
 Your completion will be graded based on the reference `test.a2.g1.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2G2 FINAL
+(##) A2G2 FINAL 
 
 You do not need any screenshots for this task. 
 
 Your completion will be graded based on the reference `test.a2.g2.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2G3 FINAL
+(##) A2G3 FINAL 
 
 You do not need any screenshots for this task. 
 
 Your completion will be graded based on the reference `test.a2.g3.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2GO1 CHOICE FINAL
+(##) A2GO1 CHOICE FINAL 
 
-**Global Operation Completed: **
+**Global Operation Completed: ** Yes
 
 You do not need any screenshots for this task. 
 
@@ -115,46 +120,58 @@ Explanation of what it is and how you made it:
 
 Any free model sources you need to credit?
 
-(##) A2LX1 EXTRA CREDIT
+(##) A2LX1 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+- If a vertex is on boundary and it only has a degree of 2, then do not collapse the vertex.
+- If a vertex is on boundary and it has a degree larger than 2, then collapse vertex without
+merging the boundary face.
+
 
 Your completion will be graded based on the reference `test.a2.lx1.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2LX2 EXTRA CREDIT
+(##) A2LX2 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+- When there is only 1 face (+ 1 boundary face), do not perform operation since this will result in 1 boundary face.
 
 Your completion will be graded based on the reference `test.a2.lx2.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2LX3 EXTRA CREDIT
+(##) A2LX3 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+
+- If face is a boudary face, do not collapse it.
+- If face has >= 2 non-consequtive boundary edges, collapsing this face will result in 
+hour glass shape, do not collapse it.
+
 
 Your completion will be graded based on the reference `test.a2.lx3.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2LX4 EXTRA CREDIT
+(##) A2LX4 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+
+- If the face is a boundary face, do not perform operation.
 
 Your completion will be graded based on the reference `test.a2.lx4.cpp` file and 
 checking that the operation works in the GUI.
@@ -203,9 +220,15 @@ You do not need any screenshots for this task.
 Your completion will be graded based on the reference `test.a2.lx8.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2GO2 CHOICE EXTRA CREDIT
+(##) A2GO2 CHOICE EXTRA CREDIT 
 
-**Global Operation Completed: **
+**Global Operation Completed: <font size="10"> IMPLEMENTED </font>**
+
+I implemented remeshing to split edges, collapse edges, flip edges, and move vertices. 
+I also found and fixed problems in collaspe edges while implementing remeshing.
+However, I noticed that when the target edge length is calculated outside the outer iteration,
+the operation may collapse all edges of a mesh. This happens when I applied remeshing on a cube
+after triangulation.
 
 You do not need any screenshots for this task. 
 
