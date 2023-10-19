@@ -372,7 +372,6 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 		//     ("much longer" means > target length * params.longer_factor)
 		for(auto itr=cur_edges.begin(); itr!=cur_edges.end(); itr++) {
 			if((*itr)->length() > meanEdgeLength * params.longer_factor) {
-				std::cout<<"split_edge\n";
 				split_edge((*itr));
 				
 			}
@@ -383,7 +382,6 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 		for(auto itr=cur_edges.begin(); itr!=cur_edges.end(); itr++) {
 			if((*itr)->halfedge != halfedges.end() && 
 			(*itr)->length() < meanEdgeLength * params.shorter_factor) {
-				std::cout<<"collapse_edge "<<(*itr)->id<<"\n";
 				collapse_edge((*itr));
 			}
 		}
@@ -419,7 +417,6 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 
 		for(auto itr=edges.begin(); itr!=edges.end(); itr++){
 			if(deviation_decrease(itr)) {
-				std::cout<<"flip_edge\n";
 				flip_edge(itr);
 			}
 		}
@@ -436,7 +433,6 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 			for(auto itr = vertices.begin(); itr != vertices.end(); itr++){
 				vertex_to_centroid[itr] = itr->neighborhood_center();
 			}
-			std::cout<<"smoothing\n";
 			for(auto itr = vertices.begin(); itr != vertices.end(); itr++){
 				if(itr->degree()>2) {
 					Vec3 v = vertex_to_centroid[itr] - itr->position;
