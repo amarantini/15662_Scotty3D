@@ -875,17 +875,10 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		// disconnect
 		to_delete_he.insert(hm);
 		to_delete_he.insert(hm->twin);
-		int count = 0;
-		while(to_delete_he.count(hm->vertex->halfedge)){
-			hm->vertex->halfedge = hm->vertex->halfedge->twin->next;
-			count++;
-			if(count>=20){
-				std::cout<<"loop\n";
-			}
-		}
 		while(to_delete_he.count(hm->twin->vertex->halfedge)){
 			hm->twin->vertex->halfedge = hm->twin->vertex->halfedge->twin->next;
 		}
+		
 		// if(hm->vertex->halfedge == hm)
 		// 	hm->vertex->halfedge = hm->vertex->halfedge->twin->next;
 		if(fb->halfedge == hm->twin)
@@ -915,6 +908,15 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 			erase_halfedge(hm_prev);
 			
 		} else {
+			// int count = 0;
+			while(to_delete_he.count(hm->vertex->halfedge)){
+				hm->vertex->halfedge = hm->vertex->halfedge->twin->next;
+				// count++;
+				// if(count>=20){
+				// 	break;
+				// }
+			}
+
 			// connect
 			hn->next = hm->twin->next;
 			hn->face = fb;

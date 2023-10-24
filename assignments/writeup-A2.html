@@ -228,11 +228,11 @@ checking that the operation works in the GUI.
 
 **Global Operation Completed: <font size="10"> IMPLEMENTED </font>**
 
-I implemented remeshing to split edges, collapse edges, flip edges, and move vertices. 
-I found and fixed problems in collaspe edges while implementing remeshing.
-However, I noticed that because the target edge length is calculated outside the outer iteration,
-the operation may collapse all edges of a mesh. This happens when I applied remeshing on a cube
-after triangulation. In this case all edges are shorter than mean edge lengths multiplied by the factor. 
+The instruction does not specify whether we should collapse newly splitted edges. But I feel it
+makes more sense if we do not collapse them. So I only collapse old edges not processed by split edge.
+Also, I noticed that if we collapse newly splitted edges, the operation may collapse all edges of a mesh. 
+This happens when I applied remeshing on a cube after triangulation. 
+In this case all newly splitted edges are shorter than mean edge lengths multiplied by the factor. 
 
 You do not need any screenshots for this task. 
 

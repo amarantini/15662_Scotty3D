@@ -362,7 +362,7 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 	meanEdgeLength /= edges.size();
 
     // Repeat the four main steps for `outer_iterations` iterations:
-	for(int i=0; i<params.outer_iterations; i++) {
+	for(uint32_t i=0; i<params.outer_iterations; i++) {
 		std::unordered_set<EdgeRef> cur_edges;
 		for(auto itr=edges.begin(); itr!=edges.end(); itr++){
 			cur_edges.insert(itr);
@@ -370,20 +370,34 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 		}
 		// -> Split edges much longer than the target length.
 		//     ("much longer" means > target length * params.longer_factor)
-		for(auto itr=cur_edges.begin(); itr!=cur_edges.end(); itr++) {
-			if((*itr)->length() > meanEdgeLength * params.longer_factor) {
-				split_edge((*itr));
-				
+		int n = edges.size();
+		EdgeRef e = edges.begin();
+		for (int i = 0; i < n; i++) {
+			EdgeRef nextEdge = e;
+			nextEdge++;
+
+			if (e->length() > meanEdgeLength * params.longer_factor) {
+				cur_edges.erase(e);
+				split_edge(e);
 			}
+
+			e = nextEdge;
 		}
 
 		// -> Collapse edges much shorter than the target length.
 		//     ("much shorter" means < target length * params.shorter_factor)
-		for(auto itr=cur_edges.begin(); itr!=cur_edges.end(); itr++) {
-			if((*itr)->halfedge != halfedges.end() && 
-			(*itr)->length() < meanEdgeLength * params.shorter_factor) {
+		// n = edges.size();
+		auto itr = cur_edges.begin();
+		while (itr != cur_edges.end()) {
+			// EdgeRef nextEdge = e;
+			// nextEdge++;
+
+			if ((*itr)->halfedge!=halfedges.end() && (*itr)->length() < meanEdgeLength * params.shorter_factor) {
 				collapse_edge((*itr));
-			}
+				
+			} 
+			itr++;
+			// e = nextEdge;
 		}
 
 		// -> Flip each edge if it improves vertex degree.
@@ -410,8 +424,7 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 			final_deviation += std::abs(d_v2-1-6);
 			final_deviation += std::abs(d_v3+1-6);
 			final_deviation += std::abs(d_v4+1-6);
-			if(initial_deviation > final_deviation)
-				std::cout<<initial_deviation-final_deviation<<"\n";
+
 			return initial_deviation > final_deviation;
 		};
 
@@ -428,7 +441,7 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 		//     smoothing_step of 0 would not move).
 		// -> Repeat the tangential smoothing part params.smoothing_iterations times.
 
-		for(int j=0; j<params.smoothing_iterations; j++){
+		for(uint32_t j=0; j<params.smoothing_iterations; j++){
 			std::unordered_map<VertexRef,Vec3> vertex_to_centroid;
 			for(auto itr = vertices.begin(); itr != vertices.end(); itr++){
 				vertex_to_centroid[itr] = itr->neighborhood_center();
