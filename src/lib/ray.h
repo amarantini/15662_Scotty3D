@@ -15,8 +15,8 @@ struct Ray {
 	/// Create Ray from point and direction
 	explicit Ray(Vec3 point, Vec3 dir,
 	             Vec2 dist_bounds = Vec2{0.0f, std::numeric_limits<float>::infinity()},
-	             uint32_t depth = 0)
-		: point(point), dir(dir.unit()), depth(depth), dist_bounds(dist_bounds) {
+	             uint32_t depth = 0, Spectrum throughput=Spectrum(1.0f))
+		: point(point), dir(dir.unit()), depth(depth), dist_bounds(dist_bounds), throughput(throughput) {
 	}
 
 	Ray(const Ray&) = default;
@@ -46,6 +46,9 @@ struct Ray {
 
 	/// The minimum and maximum distance at which this ray can encounter collisions
 	Vec2 dist_bounds = Vec2(0.0f, std::numeric_limits<float>::infinity());
+
+	// overall path throughput for executing Russian Roulette
+	Spectrum throughput;
 };
 
 inline std::ostream& operator<<(std::ostream& out, Ray r) {
