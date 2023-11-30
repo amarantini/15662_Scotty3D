@@ -44,13 +44,13 @@ template<typename T> T Spline<T>::at(float time) const {
 		k3 = k2 + (k2 - k1);
 		t3 = t2 + (t2 - t1);
 	} else {
-		auto k3_itr = std::next(k1_itr);
+		auto k3_itr = std::next(k2_itr);
 		k3 = k3_itr->second;
 		t3 = k3_itr->first;
 	}
 
-	T m0 = (k2-k0) / (t2-t0);
-	T m1 = (k3-k1) / (t3-t1);
+	T m0 = (k2-k0) / (t2-t0) * (t2 - t1);
+	T m1 = (k3-k1) / (t3-t1) * (t2 - t1);
 	float t = (time - t1) / (t2 - t1);
 
 	return cubic_unit_spline(t, k1, k2, m0, m1);
