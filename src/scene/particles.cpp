@@ -16,24 +16,28 @@ bool Particles::Particle::update(const PT::Aggregate &scene, Vec3 const &gravity
 		// collision points using the particle radius. Move the particle to its next position.
 		float ddt = 0;
 		PT::Trace trace = scene.hit(ray);
+		Vec3 normal;
+		if(dot(velocity,trace.normal)<0) {
+			normal = trace.normal;
+		} else {
+			normal = -trace.normal;
+		}
+		float cos_theta = dot(normal,-velocity.unit());
 		float speed = velocity.norm();
-		float hit_time = trace.distance / speed;
-		float rt = radius / speed; //time to travel the distance of radius
-		if (trace.hit && !isnan(trace.distance) && trace.distance<=0){
+		float hit_time = (trace.distance-radius/cos_theta) / speed;
+		if (trace.hit && !std::isnan(hit_time) && hit_time<=0){
 			//collision at a negative time
-			velocity = velocity - 2*dot(velocity,trace.normal)*trace.normal;
+			velocity = velocity - 2*dot(velocity,normal)*normal;
 			ddt = 0;
-		} else if(trace.hit && !isnan(hit_time) //&& hit_time<=t) {
-				&& hit_time-rt>=0
-				&& hit_time-rt<=t){
+		} else if(trace.hit && !std::isnan(hit_time) && hit_time<t){
 			//collision happens before end of timestep
-			ddt = hit_time-rt;
+			ddt = hit_time;
 			t -= ddt;
 			position += velocity * ddt;
-			velocity = velocity - 2*dot(velocity,trace.normal)*trace.normal;
+			velocity = velocity - 2*dot(velocity,normal)*normal;
 		} else {
 			// no collision OR
-			// collision happens after end of timestep trace.distance>t
+			// collision happens after end of timestep
 			position += velocity * t;
 			ddt = t;
 			t = 0;

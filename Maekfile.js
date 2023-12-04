@@ -62,8 +62,8 @@ if (maek.OS === "windows") {
 	);
 } else if (maek.OS === "macos") {
 	maek.options.CPPFlags.push(
-		"-g", //for lldb
-		// "-O2", //optimize 
+		// "-g", //for lldb
+		"-O2", //optimize 
 		`-I${NEST_LIBS}/SDL2/include/SDL2`, `-D_THREAD_SAFE`, //SDL include flags
 		"-Isrc", "-Ideps"  //include directories
 	);
