@@ -13,7 +13,80 @@
  */
 void Halfedge_Mesh::triangulate() {
 	//A2G1: triangulation
-	
+	std::vector< FaceRef > curr_faces;
+	for (auto f_itr = faces.begin(); f_itr!= faces.end(); f_itr++) {
+		curr_faces.push_back(f_itr);
+	}
+
+	for(auto f: curr_faces) {
+		if(f->degree()>3 && !f->boundary){
+			// add triangle
+			
+			uint32_t degree = f->degree();
+			HalfedgeRef h = f->halfedge;
+			VertexRef v = h->vertex;
+
+			std::vector<HalfedgeRef> new_hes;
+
+			auto create_elements = [&](){
+				FaceRef f_new = emplace_face(false);
+				EdgeRef e_new = emplace_edge();
+				HalfedgeRef h_new = emplace_halfedge();
+				HalfedgeRef t_new = emplace_halfedge();
+				h_new->twin = t_new;
+				h_new->edge = e_new;
+				t_new->twin = h_new;
+				t_new->edge = e_new;
+				e_new->halfedge = h_new;
+				h_new->face = f_new;
+				f_new->halfedge = h_new;
+
+				new_hes.push_back(h_new);
+			};
+
+			for(uint32_t j=0; j<degree-3; j++){
+				create_elements();
+			}
+
+			uint32_t i = 0;
+
+			// Add first triangle based on existing face f
+			HalfedgeRef h_next = h->next;
+			HalfedgeRef h_next_next = h_next->next;
+			HalfedgeRef h_new = new_hes[i++];
+			HalfedgeRef t_new = h_new->twin;
+			t_new->set_tnvef(h_new, h, h_next->next->vertex, t_new->edge, f);
+			t_new->corner_normal = t_new->face->normal();
+			h_next->next = t_new;
+
+			h_next = h_next_next;
+			while(h_next->next->next != f->halfedge) {
+				// h_new (i), t_new (i+1) and h_next form a triangle
+				h_next_next = h_next->next;
+				
+				h_new->set_tnvef(h_new->twin, h_next, v, h_new->edge, h_new->face);
+				t_new = new_hes[i+1]->twin;
+				t_new->set_tnvef(t_new->twin, h_new, h_next->next->vertex, t_new->edge, h_new->face);
+				h_next->face = h_new->face; 
+				h_next->next = t_new;
+				h_new->corner_normal = h_new->face->normal();
+				t_new->corner_normal = t_new->face->normal();
+
+				h_new = new_hes[i++];
+				h_next = h_next_next;
+			}
+
+			// Set last triangle
+			h_new->set_tnvef(h_new->twin, h_next, v, h_new->edge, h_new->face);
+			h_next->next->next = h_new;
+			h_next->next->face = h_new->face;
+			h_new->face = h_new->face;
+			h_next->face = h_new->face;
+			h_new->corner_normal = h_new->face->normal();
+			
+		}
+	}
+
 }
 
 /*
@@ -33,16 +106,26 @@ void Halfedge_Mesh::linear_subdivide() {
 	// For every vertex, assign its current position to vertex_positions[v]:
 
 	//(TODO)
+	for(auto itr=vertices.begin(); itr!=vertices.end(); itr++){
+		vertex_positions[itr] = itr->position;
+	}
 
     // For every edge, assign the midpoint of its adjacent vertices to edge_vertex_positions[e]:
 	// (you may wish to investigate the helper functions of Halfedge_Mesh::Edge)
 
 	//(TODO)
+	for(auto itr=edges.begin(); itr!=edges.end(); itr++){
+		edge_vertex_positions[itr] = itr->center();
+	}
 
     // For every *non-boundary* face, assign the centroid (i.e., arithmetic mean) to face_vertex_positions[f]:
 	// (you may wish to investigate the helper functions of Halfedge_Mesh::Face)
 
 	//(TODO)
+	for(auto itr=faces.begin(); itr!=faces.end(); itr++){
+		if(!itr->boundary)
+			face_vertex_positions[itr] = itr->center();
+	}
 
 
 	//use the helper function to actually perform the subdivision:
@@ -72,12 +155,56 @@ void Halfedge_Mesh::catmark_subdivide() {
 	// https://en.wikipedia.org/wiki/Catmull%E2%80%93Clark_subdivision_surface
 
 	// Faces
+	for(auto itr=faces.begin(); itr!=faces.end(); itr++){
+		if(!itr->boundary)
+			face_vertex_positions[itr] = itr->center();
+	}
 
 	// Edges
+	for(auto itr=edges.begin(); itr!=edges.end(); itr++){
+		HalfedgeRef h = itr->halfedge;
+		HalfedgeRef t = h->twin;
+		VertexRef v1 = h->vertex;
+		VertexRef v2 = t->vertex;
+		Vec3 pos = v1->position + v2->position;
+		int n = 2;
+		if(!h->face->boundary && !t->face->boundary) {
+			pos += face_vertex_positions[h->face];
+			pos += face_vertex_positions[t->face];
+			n += 2;
+		}
+		edge_vertex_positions[itr] = pos / (float)n;
+	}
 
 	// Vertices
-
+	for(auto itr=vertices.begin(); itr!=vertices.end(); itr++){
+		HalfedgeRef h = itr->halfedge;
+		if(itr->on_boundary()){
+			Vec3 pos = 3.0f / 4.0f * itr->position;
+			do {
+				if(h->twin->vertex->on_boundary()){
+					pos += 1.0f / 8.0f * h->twin->vertex->position;
+				}
+				h = h->twin->next;
+			} while(h != itr->halfedge);
+			vertex_positions[itr] = pos;
+		} else {
+			int n = itr->degree();
+			Vec3 Q = Vec3(0); // the average of all new face position for faces containing v
+			Vec3 R = Vec3(0);// the average of all original edge midpoints for edges containing v
 	
+			do {
+				Q += face_vertex_positions[h->face];
+				R += h->edge->center();
+				h = h->twin->next;
+			} while(h != itr->halfedge);
+			Q /= (float)n;
+			R /= (float)n;
+
+			vertex_positions[itr] = (Q + 2.0f * R + (float)(n-3) * itr->position) / (float)n;
+		}
+	}
+
 	//Now, use the provided helper function to actually perform the subdivision:
 	catmark_subdivide_helper(vertex_positions, edge_vertex_positions, face_vertex_positions);
 
@@ -124,11 +251,49 @@ bool Halfedge_Mesh::loop_subdivide() {
 	// the Loop subdivision rule and store them in vertex_new_pos.
 	[[maybe_unused]]
 	std::unordered_map< VertexRef, Vec3 > vertex_new_pos;
+	for(auto itr=vertices.begin(); itr!=vertices.end(); itr++){
+		HalfedgeRef h = itr->halfedge;
+		if(itr->on_boundary()){
+			while(!h->edge->on_boundary()){
+				h = h->twin->next;
+			}
+			VertexRef a = h->next->vertex;
+			VertexRef b = h->twin->next->next->vertex;
+			vertex_new_pos[itr] = 1.0f / 8.0f * (a->position + b->position) + 3.0f / 4.0f * itr->position;
+		} else {
+			Vec3 neighbor_pos = Vec3(0);		
+			do {
+				neighbor_pos += h->twin->vertex->position;
+				h = h->twin->next;
+			} while (h != itr->halfedge);
+			int n = itr->degree();
+			float u;
+			if(n==3) {
+				u = 3.0f / 16.0f;
+			} else {
+				u = 3.0f / (8.0f * (float)n);
+			}
+			vertex_new_pos[itr] = (1.0f - n * u)*itr->position + u * neighbor_pos;
+		}
+	}
 	    
 	// Next, compute the subdivided vertex positions associated with edges, and
 	// store them in edge_new_pos:
 	[[maybe_unused]]
 	std::unordered_map< EdgeRef, Vec3 > edge_new_pos;
+	for(auto itr=edges.begin(); itr!=edges.end(); itr++){
+		HalfedgeRef h = itr->halfedge;
+		HalfedgeRef t = h->twin;
+		VertexRef a = h->vertex;
+		VertexRef b = t->vertex;
+		if(itr->on_boundary()){
+			edge_new_pos[itr] = 1.0f / 2.0f * (a->position + b->position);
+		} else {
+			VertexRef c = h->next->next->vertex;
+			VertexRef d = t->next->next->vertex;
+			edge_new_pos[itr] = 3.0f / 8.0f * (a->position + b->position) + 1.0f / 8.0f * (c->position + d->position);
+		}
+	}
     
 	// Next, we're going to split every edge in the mesh, in any order, placing
 	// the split vertex at the recorded edge_new_pos.
@@ -137,6 +302,25 @@ bool Halfedge_Mesh::loop_subdivide() {
 	// edges added by splitting. So store references to the new edges:
 	[[maybe_unused]]
 	std::vector< EdgeRef > new_edges;
+
+	size_t n = edges.size();
+	auto itr=edges.begin();
+	for(size_t i=0; i<n; i++, itr++){
+		VertexRef a = itr->halfedge->vertex;
+		VertexRef b = itr->halfedge->twin->vertex;
+
+		VertexRef v_new = split_edge(itr).value();
+		v_new->position = edge_new_pos[itr];
+
+		HalfedgeRef h = v_new->halfedge;
+		do {
+			if(h->twin->vertex != a && h->twin->vertex != b){
+				new_edges.push_back(h->edge);
+			}
+			h = h->twin->next;
+		} while (h!=v_new->halfedge);
+		
+	}
 
 	// Also note that in this loop, we only want to iterate over edges of the
 	// original mesh. Otherwise, we'll end up splitting edges that we just split
@@ -151,11 +335,15 @@ bool Halfedge_Mesh::loop_subdivide() {
 	};
 
     // Now flip any new edge that connects an old and new vertex.
+	for(EdgeRef e: new_edges){
+		if(!is_new(e->halfedge->vertex) || !is_new(e->halfedge->twin->vertex))
+			flip_edge(e);
+	}
     
     // Finally, copy new vertex positions into the Vertex::position.
-
-
-
+	for(auto itr=vertex_new_pos.begin(); itr!=vertex_new_pos.end(); itr++){
+		itr->first->position = itr->second;
+	}
 
 	return true;
 }
@@ -166,26 +354,109 @@ void Halfedge_Mesh::isotropic_remesh(Isotropic_Remesh_Parameters const &params) 
 
 	//A2Go2: Isotropic Remeshing
 	// Optional! Only one of {A2Go1, A2Go2, A2Go3} is required!
-
 	// Compute the mean edge length. This will be the "target length".
+	float meanEdgeLength = 0;
+	for(auto itr=edges.begin(); itr!=edges.end(); itr++){
+		meanEdgeLength += itr->length();
+	}
+	meanEdgeLength /= edges.size();
 
     // Repeat the four main steps for `outer_iterations` iterations:
+	for(uint32_t i=0; i<params.outer_iterations; i++) {
+		std::unordered_set<EdgeRef> cur_edges;
+		for(auto itr=edges.begin(); itr!=edges.end(); itr++){
+			cur_edges.insert(itr);
+			
+		}
+		// -> Split edges much longer than the target length.
+		//     ("much longer" means > target length * params.longer_factor)
+		int n = edges.size();
+		EdgeRef e = edges.begin();
+		for (int i = 0; i < n; i++) {
+			EdgeRef nextEdge = e;
+			nextEdge++;
 
-    // -> Split edges much longer than the target length.
-	//     ("much longer" means > target length * params.longer_factor)
+			if (e->length() > meanEdgeLength * params.longer_factor) {
+				cur_edges.erase(e);
+				split_edge(e);
+			}
 
-    // -> Collapse edges much shorter than the target length.
-	//     ("much shorter" means < target length * params.shorter_factor)
+			e = nextEdge;
+		}
 
-    // -> Flip each edge if it improves vertex degree.
+		// -> Collapse edges much shorter than the target length.
+		//     ("much shorter" means < target length * params.shorter_factor)
+		// n = edges.size();
+		auto itr = cur_edges.begin();
+		while (itr != cur_edges.end()) {
+			// EdgeRef nextEdge = e;
+			// nextEdge++;
 
-    // -> Finally, apply some tangential smoothing to the vertex positions.
-	//     This means move every vertex in the plane of its normal,
-	//     toward the centroid of its neighbors, by params.smoothing_step of
-	//     the total distance (so, smoothing_step of 1 would move all the way,
-	//     smoothing_step of 0 would not move).
-	// -> Repeat the tangential smoothing part params.smoothing_iterations times.
+			if ((*itr)->halfedge!=halfedges.end() && (*itr)->length() < meanEdgeLength * params.shorter_factor) {
+				collapse_edge((*itr));
+				
+			} 
+			itr++;
+			// e = nextEdge;
+		}
 
+		// -> Flip each edge if it improves vertex degree.
+		auto deviation_decrease = [](EdgeRef e) {
+			int initial_deviation = 0;
+			int final_deviation = 0;
+			HalfedgeRef h = e->halfedge;
+			HalfedgeRef t = h->twin;
+			VertexRef v1 = h->vertex;
+			VertexRef v2 = t->vertex;
+			VertexRef v3 = h->next->next->vertex;
+			VertexRef v4 = t->next->next->vertex;
+			int d_v1 = v1->degree();
+			int d_v2 = v2->degree();
+			int d_v3 = v3->degree();
+			int d_v4 = v4->degree();
+
+			initial_deviation += std::abs(d_v1-6);
+			initial_deviation += std::abs(d_v2-6);
+			initial_deviation += std::abs(d_v3-6);
+			initial_deviation += std::abs(d_v4-6);
+
+			final_deviation += std::abs(d_v1-1-6);
+			final_deviation += std::abs(d_v2-1-6);
+			final_deviation += std::abs(d_v3+1-6);
+			final_deviation += std::abs(d_v4+1-6);
+
+			return initial_deviation > final_deviation;
+		};
+
+		for(auto itr=edges.begin(); itr!=edges.end(); itr++){
+			if(deviation_decrease(itr)) {
+				flip_edge(itr);
+			}
+		}
+		
+		// -> Finally, apply some tangential smoothing to the vertex positions.
+		//     This means move every vertex in the plane of its normal,
+		//     toward the centroid of its neighbors, by params.smoothing_step of
+		//     the total distance (so, smoothing_step of 1 would move all the way,
+		//     smoothing_step of 0 would not move).
+		// -> Repeat the tangential smoothing part params.smoothing_iterations times.
+
+		for(uint32_t j=0; j<params.smoothing_iterations; j++){
+			std::unordered_map<VertexRef,Vec3> vertex_to_centroid;
+			for(auto itr = vertices.begin(); itr != vertices.end(); itr++){
+				vertex_to_centroid[itr] = itr->neighborhood_center();
+			}
+			for(auto itr = vertices.begin(); itr != vertices.end(); itr++){
+				if(itr->degree()>2) {
+					Vec3 v = vertex_to_centroid[itr] - itr->position;
+					Vec3 N = itr->normal();
+					v = v - dot(N, v) * N;
+					itr->position += params.smoothing_step * v;
+				}
+			}
+
+		}
+	}
 	//NOTE: many of the steps in this function will be modifying the element
 	//      lists they are looping over. Take care to avoid use-after-free
 	//      or infinite-loop problems.

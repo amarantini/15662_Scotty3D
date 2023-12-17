@@ -329,9 +329,64 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::split_edge(EdgeRef e) {
  */
 std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::inset_vertex(FaceRef f) {
 	// A2Lx4 (OPTIONAL): inset vertex
-	
-	(void)f;
-    return std::nullopt;
+	if(f->boundary){
+		return std::nullopt;
+	}
+
+	HalfedgeRef h_old = f->halfedge;
+	std::vector<HalfedgeRef> old_hs;
+	std::vector<HalfedgeCRef> old_hs_const;
+	std::vector<VertexCRef> old_vs;
+	std::vector<HalfedgeRef> new_hs;
+	std::vector<FaceRef> new_fs = {f};
+	int degree = f->degree();
+	for(int i=0; i<degree; i++) {
+		HalfedgeRef h = emplace_halfedge();
+		HalfedgeRef t = emplace_halfedge();
+		EdgeRef e = emplace_edge(false);
+		if(i!=0) {
+			FaceRef f = emplace_face(false);
+			new_fs.push_back(f);
+		}
+		new_hs.push_back(h);
+
+		h->twin = t;
+		t->twin = h;
+		h->edge = e;
+		t->edge = e;
+		e->halfedge = h;
+
+		old_hs.push_back(h_old);
+		old_hs_const.push_back(h_old);
+		old_vs.push_back(h->vertex);
+		h_old = h_old->next;
+	}
+
+	VertexRef v = emplace_vertex();
+	v->halfedge = new_hs[0];
+
+	for(int i=0; i<degree; i++) {
+		new_fs[i]->halfedge = new_hs[i];
+
+		new_hs[i]->vertex = v;
+		new_hs[i]->next = old_hs[i];
+		new_hs[i]->face = new_fs[i];
+
+		int i_next = i==degree-1 ? 0: i+1;
+		old_hs[i]->next = new_hs[i_next]->twin;
+		old_hs[i]->face = new_fs[i];
+
+		new_hs[i_next]->twin->next = new_hs[i];
+		new_hs[i_next]->twin->face = new_fs[i];
+		new_hs[i_next]->twin->vertex = old_hs[i]->twin->vertex;
+
+		interpolate_data(old_hs_const, new_hs[i]);
+		interpolate_data(old_hs_const, new_hs[i_next]->twin);
+	}
+
+	// interpolate_data(old_vs, v);
+	v->position = v->neighborhood_center();
+    return v;
 }
 
 
@@ -477,7 +532,7 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f) {
 
 		t1->face = f_new;
 		t1->next = t2;
-		t1->corner_normal = htmp->twin->corner_normal;
+		t1->corner_normal = htmp->corner_normal;
 		t1->vertex = vs[i+1==degree?0:i+1];
 
 		t2->next = htmp;
@@ -527,25 +582,18 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	FaceRef f1 = h->face;
 	FaceRef f2 = t->face;
 
+	// edge case: a vertex only has 2 edges
+	if(v1->degree()<=2 || v2->degree()<=2){
+		return std::nullopt;
+	}
+
 	// disconnect
-	HalfedgeRef old_v1_he = v1->halfedge;
-	HalfedgeRef old_v2_he = v2->halfedge;
-	HalfedgeRef old_f1_he = f1->halfedge;
-	HalfedgeRef old_f2_he = f1->halfedge;
 	v1->halfedge = h->next;
 	v2->halfedge = t->next;
 	f1->halfedge = h;
 	f2->halfedge = t;
 
 	// connect
-	VertexRef old_t_vertex = t->vertex;
-	VertexRef old_h_vertex = h->vertex;
-	HalfedgeRef old_h_next = h->next;
-	HalfedgeRef old_t_next = t->next;
-	HalfedgeRef old_h_next_next = h_next->next;
-	HalfedgeRef old_t_next_next = t_next->next;
-	FaceRef old_h_next_face = h_next->face;
-	FaceRef old_t_next_face = t_next->face;
 	t->vertex = v3;
 	h->vertex = v4;
 	h->next = h_next->next;
@@ -559,38 +607,13 @@ std::optional<Halfedge_Mesh::EdgeRef> Halfedge_Mesh::flip_edge(EdgeRef e) {
 	while(h_last->next != h){
 		h_last = h_last->next;
 	}
-	HalfedgeRef old_h_last_next = h_last->next;
 	h_last->next = t_next;
 
 	HalfedgeRef t_last = t;
 	while(t_last->next != t){
 		t_last = t_last->next;
 	}
-	HalfedgeRef old_t_last_next = t_last->next;
 	t_last->next = h_next;
-
-	auto validated = validate();
-	if(validated!=std::nullopt) {
-		log(validated->second);
-		// restore
-		t_last->next = old_t_last_next;
-		h_last->next = old_h_last_next;
-
-		t->vertex = old_t_vertex;
-		h->vertex = old_h_vertex;
-		h->next = old_h_next;
-		t->next = old_t_next;
-		h_next->next = old_h_next_next;
-		t_next->next = old_t_next_next;
-		h_next->face = old_h_next_face;
-		t_next->face = old_t_next_face;
-
-		v1->halfedge = old_v1_he;
-		v2->halfedge = old_v2_he;
-		f1->halfedge = old_f1_he;
-		f1->halfedge = old_f2_he;
-		return std::nullopt;
-	}
 
 	return e;
 }
@@ -620,8 +643,78 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::make_boundary(FaceRef face)
  */
 std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::dissolve_vertex(VertexRef v) {
 	// A2Lx1 (OPTIONAL): Dissolve Vertex
+	if(v->on_boundary() && v->degree()==2){
+		return std::nullopt;
+	}
 
-    return std::nullopt;
+	std::vector<HalfedgeRef> to_delete_h;
+	std::vector<FaceRef> to_delete_f;
+	std::vector<EdgeRef> to_delete_e;
+	HalfedgeRef h = v->halfedge;
+	HalfedgeRef h_b = halfedges.end(); //boundary halfedge
+	HalfedgeRef h_b_twin_next = halfedges.end();
+	FaceRef f = h->face;
+	std::vector<HalfedgeRef> to_connect_h;
+	do {
+		if(h->face->boundary){
+			h_b = h;
+			h_b_twin_next = h->twin->next->twin->next->next;
+		} else {
+			to_delete_h.push_back(h);
+			to_delete_h.push_back(h->twin);
+			to_delete_e.push_back(h->edge);
+			to_delete_f.push_back(h->face);
+			to_connect_h.push_back(h->next);
+			//disconnect
+			h->next->face = f;
+			h->twin->vertex->halfedge = h->next;
+		}
+	
+
+		h = h->twin->next;
+	} while (h != v->halfedge);
+
+	//connect
+	if(h_b != halfedges.end()){
+		HalfedgeRef h_b_pprev = h_b;
+		while(h_b_pprev->next->next!=h_b){
+			h_b_pprev = h_b_pprev->next;
+		}
+		h_b->vertex = h_b_pprev->next->vertex;
+		h_b_pprev->next = h_b;
+		h_b->twin->face = f;
+		h_b->twin->next = h_b_twin_next;
+	}
+		
+	f->halfedge = to_connect_h.back();
+	for(int i=to_connect_h.size()-1; i>=1; i--){
+		if(h_b == halfedges.end() || to_connect_h[i]->next != h_b->twin)
+			to_connect_h[i]->next = to_connect_h[i-1];
+	}
+	to_connect_h[0]->next = to_connect_h.back();
+
+	Vec3 n = f->normal();
+	for(int i=to_connect_h.size()-1; i>=1; i--){
+		to_connect_h[i]->corner_normal = n;
+	}
+
+	// delete
+	for(auto e: to_delete_e){
+		erase_edge(e);
+	}
+
+	for(auto e: to_delete_h){
+		erase_halfedge(e);
+	}
+
+	for(auto e: to_delete_f){
+		if(e!=f)
+			erase_face(e);
+	}
+
+	erase_vertex(v);
+
+    return f;
 }
 
 /*
@@ -637,8 +730,53 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::dissolve_edge(EdgeRef e) {
 	// A2Lx2 (OPTIONAL): dissolve_edge
 
 	//Reminder: use interpolate_data() to merge corner_uv / corner_normal data
-	
-    return std::nullopt;
+
+	// Edge case: dissolving an edge when there is only 1 face (+ 1 boundary face)
+	if(e->on_boundary() && faces.size()==2)
+    	return std::nullopt;
+
+	HalfedgeRef h = e->halfedge;
+	HalfedgeRef t = h->twin;
+	FaceRef f1 = h->face;
+	FaceRef f2 = t->face;
+
+	// disconnect
+	if(h->vertex->halfedge == h)
+		h->vertex->halfedge = h->twin->next;
+
+	if(t->vertex->halfedge == t)
+		t->vertex->halfedge = t->twin->next;
+
+	if(f2->boundary) {
+		swap(h,t);
+		swap(f1,f2);
+	}
+
+	// Merge f2 into f1
+	do {
+		t->face = f1;
+		t = t->next;
+	} while (t != h->twin);
+
+	HalfedgeRef h_prev = h;
+	do {
+		h_prev = h_prev->next;
+	} while (h_prev->next != h);
+
+	HalfedgeRef t_prev = t;
+	do {
+		t_prev = t_prev->next;
+	} while (t_prev->next != t);
+
+	t_prev->next = h->next;
+	h_prev->next = t->next;
+
+	erase_edge(h->edge);
+	erase_halfedge(h);
+	erase_halfedge(t);
+	erase_face(f2);
+
+	return f1;
 }
 
 /* collapse_edge: collapse edge to a vertex at its middle
@@ -664,10 +802,6 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 	uint32_t f1_degree = f1->degree();
 	uint32_t f2_degree = f2->degree();
 
-    // std::cout<<"h->id: "<<h->id<<"\n";
-    // std::cout<<"t->id: "<<t->id<<"\n";
-	// std::cout<<"v1->id: "<<v1->id<<"\n";
-    // std::cout<<"v2->id: "<<v2->id<<"\n";
 
 	auto joint_neighbor_edges_on_boundary = [=](VertexRef v1, VertexRef v2){
 		// v1 and v2 has neighbor v3
@@ -690,10 +824,10 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		return false; // no joint neighbor
 	};
 
-    if(!e->on_boundary() && 
+    if((!e->on_boundary() && 
 		v1->on_boundary() && 
 		v2->on_boundary() && 
-		!joint_neighbor_edges_on_boundary(v1,v2)) {
+		!joint_neighbor_edges_on_boundary(v1,v2))) {
         return std::nullopt;
 	}
 		
@@ -733,35 +867,40 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 
 	t_prev->face->halfedge = t_prev;
 
-	auto merge_face = [=](FaceRef fa){
+	auto merge_face = [=](FaceRef fa, std::set<HalfedgeRef>& to_delete_he){
 		HalfedgeRef hm = fa->halfedge;
 		HalfedgeRef hn = hm->next;
 		FaceRef fb = hm->twin->face;
-		// std::cout<<"merge face: "<<fa->id<<"\n";
-		// std::cout<<"hm->id: "<<hm->id<<"\n";
 
 		// disconnect
-		if(hm->vertex->halfedge == hm)
-			hm->vertex->halfedge = hm->vertex->halfedge->twin->next;
+		to_delete_he.insert(hm);
+		to_delete_he.insert(hm->twin);
+		while(to_delete_he.count(hm->twin->vertex->halfedge)){
+			hm->twin->vertex->halfedge = hm->twin->vertex->halfedge->twin->next;
+		}
+		
+		// if(hm->vertex->halfedge == hm)
+		// 	hm->vertex->halfedge = hm->vertex->halfedge->twin->next;
 		if(fb->halfedge == hm->twin)
 			fb->halfedge = hm->twin->next;
 
 		HalfedgeRef hm_prev = hm->next;
-		if(hm->edge->on_boundary() && hm_prev->edge->on_boundary()){
-			// HalfedgeRef hm_next = hm->next;
-			
-			// std::cout<<"hm_prev->id"<<hm_prev->id<<"\n";
-		
+		if(hm->edge->on_boundary() && hm_prev->edge->on_boundary()){	
 			HalfedgeRef tm = hm->twin;
 			HalfedgeRef tm_prev = tm;
 			do{
 				tm_prev = tm_prev->next;
 			} while(tm_prev->next != tm);
+
+			to_delete_he.insert(hm_prev);
+			to_delete_he.insert(hm_prev->twin);
+			while(to_delete_he.count(hm_prev->vertex->halfedge)){
+				hm_prev->vertex->halfedge = hm_prev->vertex->halfedge->twin->next;
+			}
+
 			tm_prev->next = tm->next->next;
 			tm->face->halfedge = tm_prev;
-			// std::cout<<"tm_prev->id"<<tm_prev->id<<"\n";
-			// std::cout<<"tm_prev->next->id"<<tm_prev->next->id<<"\n";
-			// std::cout<<"hm_prev->twin->vertex"<<hm_prev->twin->vertex->id<<"\n";
+			
 			hm_prev->vertex->halfedge = hm_prev->twin->next;
 			erase_edge(hm_prev->edge);
 			erase_vertex(hm_prev->twin->vertex);
@@ -769,6 +908,15 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 			erase_halfedge(hm_prev);
 			
 		} else {
+			// int count = 0;
+			while(to_delete_he.count(hm->vertex->halfedge)){
+				hm->vertex->halfedge = hm->vertex->halfedge->twin->next;
+				// count++;
+				// if(count>=20){
+				// 	break;
+				// }
+			}
+
 			// connect
 			hn->next = hm->twin->next;
 			hn->face = fb;
@@ -788,10 +936,6 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 
 	if(f1_degree>3 && f2_degree>3) {
 		// no degenerating face
-			
-		// h_prev->twin->vertex = v1;
-		// t_next->vertex = v1;
-
 		while(to_delete_he.count(v1->halfedge))
 			v1->halfedge = v1->halfedge->twin->next;
 
@@ -800,8 +944,8 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 		f1->halfedge = h_prev;
 		f2->halfedge = t->next;
 		
-		merge_face(f1);
-		merge_face(f2);
+		merge_face(f1, to_delete_he);
+		merge_face(f2, to_delete_he);
 	} else if (f1_degree == 3) {
 		// remove f1
 
@@ -813,7 +957,7 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 			v1->halfedge = v1->halfedge->twin->next;
 		
 		f1->halfedge = h_prev;
-		merge_face(f1);
+		merge_face(f1, to_delete_he);
 
 	} else if (f2_degree == 3) {
 		// remove f2
@@ -826,7 +970,7 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e) 
 			v1->halfedge = v1->halfedge->twin->next;
 		
 		f2->halfedge = t->next;
-		merge_face(f2);
+		merge_face(f2, to_delete_he);
 	}
 
 	erase_edge(e);
@@ -849,8 +993,97 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_face(FaceRef f) 
 
 	//Reminder: use interpolate_data() to merge corner_uv / corner_normal data on halfedges
 	// (also works for bone_weights data on vertices!)
+	if(f->boundary){
+		return std::nullopt;
+	}
+	HalfedgeRef h = f->halfedge;
 
-    return std::nullopt;
+	// Edge case: if the face to collapse has >= 2 non-consequtive boundary edges, collapsing 
+	// this face will result in hour glass shape
+	auto has_non_consecutive_boundary_edges = [&](){
+		int n = 0;
+		do {
+			if(h->edge->on_boundary())
+				n++;
+			do{
+				h = h->next;
+			} while(h->edge->on_boundary() && h!=f->halfedge);
+		} while (h!=f->halfedge);
+		return n>=2;
+	};
+	if(has_non_consecutive_boundary_edges()){
+		return std::nullopt;
+	}
+
+	std::vector<HalfedgeRef> to_delete_h;
+	std::vector<EdgeRef> to_delete_e;
+	std::vector<VertexRef> to_delete_v;
+
+	VertexRef v = h->vertex;
+	if (v->halfedge->face == f || v->halfedge->twin->face==f) {
+		v->halfedge = v->halfedge->twin->next;
+	}
+
+	do {
+		to_delete_h.push_back(h);
+		to_delete_h.push_back(h->twin);
+		to_delete_e.push_back(h->edge);
+		VertexRef vc = h->vertex;
+		if(vc!=v){
+			to_delete_v.push_back(h->vertex);
+			HalfedgeRef hc = vc->halfedge;
+			do {
+				if(hc!=h){
+					hc->vertex = v;
+				}
+				hc = hc->twin->next;
+			} while (hc != vc->halfedge);
+		}
+
+		h = h->next;
+	} while (h!=f->halfedge);
+
+	do {
+		HalfedgeRef t = h->twin;
+		HalfedgeRef t_prev = t;
+		interpolate_data({t_prev,t},t_prev);
+		interpolate_data({t->next,t},t->next);
+		do {
+			t_prev = t_prev->next;
+		} while (t_prev->next != t);
+		t_prev->next = t->next;
+		t->face->halfedge = t_prev;
+		h = h->next;
+	} while (h!=f->halfedge);
+	
+	// delete
+	for(auto e: to_delete_e){
+		erase_edge(e);
+	}
+
+	for(auto e: to_delete_h){
+		erase_halfedge(e);
+	}
+
+	for(auto e: to_delete_v){
+		if(e!=v)
+			erase_vertex(e);
+	}
+
+	erase_face(f);
+
+	// center v
+	std::vector<VertexCRef> v_neighbors;
+	h = v->halfedge;
+	do {
+		v_neighbors.push_back(h->twin->vertex);
+		h = h->twin->next;
+	} while(h != v->halfedge);
+
+	v->position = v->neighborhood_center();
+	interpolate_data(v_neighbors, v);
+
+	return v;
 }
 
 /*
@@ -929,22 +1162,33 @@ void Halfedge_Mesh::extrude_positions(FaceRef face, Vec3 move, float shrink) {
 	HalfedgeRef h = face->halfedge;
 
 	Vec3 centroid = face->center();
-	// std::cout<<"centroid: "<<centroid<<"\n";
 
 	do {
 		VertexRef v = h->vertex;
-		// std::cout<<"v->position before:"<<v->position<<"\n";
 		if (shrink > 0.0f) {
-			// shrink
 			v->position = (v->position - centroid) * shrink + centroid;
 		} else if (shrink < 0.0f) {
-			// expand
 			v->position = (v->position - centroid) * 2.0f * (-1.0f) * shrink + centroid;
 		}
 		v->position += move;
-		// std::cout<<"v->position after:"<<v->position<<"\n";
 		h = h->next;
 	} while (h != face->halfedge);
+
+	auto isNan = [=](Vec3 v){
+		return v.x == NAN || v.y == NAN || v.z == NAN;
+	};
+
+	do {
+		Vec3 n = face->normal();
+		if(!isNan(n))
+			h->corner_normal = n;
+		HalfedgeRef t = h->twin;
+		do {
+			Vec3 n = face->normal();
+			if(!isNan(n))
+				t->corner_normal = n;
+		} while(t != h->twin);
+	} while(h != face->halfedge);
 	
 }
 

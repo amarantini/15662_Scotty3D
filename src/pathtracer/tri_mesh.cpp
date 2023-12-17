@@ -14,33 +14,82 @@ BBox Triangle::bbox() const {
 
     // Beware of flat/zero-volume boxes! You may need to
     // account for that here, or later on in BBox::hit.
+	float eps = 0.0001f;
 
-    BBox box;
+	Tri_Mesh_Vert v_0 = vertex_list[v0];
+    Tri_Mesh_Vert v_1 = vertex_list[v1];
+    Tri_Mesh_Vert v_2 = vertex_list[v2];
+
+	float x0 = std::min(std::min(v_0.position.x, v_1.position.x),v_2.position.x);
+	float y0 = std::min(std::min(v_0.position.y, v_1.position.y),v_2.position.y);
+	float z0 = std::min(std::min(v_0.position.z, v_1.position.z),v_2.position.z);
+
+	float x1 = std::max(std::max(v_0.position.x, v_1.position.x),v_2.position.x);
+	float y1 = std::max(std::max(v_0.position.y, v_1.position.y),v_2.position.y);
+	float z1 = std::max(std::max(v_0.position.z, v_1.position.z),v_2.position.z);
+
+	if(x0==x1){
+		x1 += eps;
+	}
+
+	if(y0==y1){
+		y1 += eps;
+	}
+
+	if(z0==z1){
+		z1 += eps;
+	}
+
+    BBox box(Vec3(x0,y0,z0),Vec3(x1,y1,z1));
     return box;
 }
 
 Trace Triangle::hit(const Ray& ray) const {
 	//A3T2
+	float eps = 0.00001f;
+	Trace ret;
+	ret.origin = ray.point;
+	ret.hit = false;
+	ret.distance = FLT_MAX;
 	
 	// Each vertex contains a postion and surface normal
     Tri_Mesh_Vert v_0 = vertex_list[v0];
     Tri_Mesh_Vert v_1 = vertex_list[v1];
     Tri_Mesh_Vert v_2 = vertex_list[v2];
-    (void)v_0;
-    (void)v_1;
-    (void)v_2;
 
     // TODO (PathTracer): Task 2
     // Intersect the ray with the triangle defined by the three vertices.
+	Vec3 s = ray.point - v_0.position;
+	Vec3 e1 = v_1.position - v_0.position;
+	Vec3 e2 = v_2.position - v_0.position;
+	Vec3 d = ray.dir;
 
-    Trace ret;
-    ret.origin = ray.point;
-    ret.hit = false;       // was there an intersection?
-    ret.distance = 0.0f;   // at what distance did the intersection occur?
-    ret.position = Vec3{}; // where was the intersection?
-    ret.normal = Vec3{};   // what was the surface normal at the intersection?
+	Vec3 e1_cross_d = cross(e1,d);
+	Vec3 s_cross_e2 = cross(s,e2);
+	float denominator = dot(e1_cross_d,e2);
+	if(std::abs(denominator)<eps){
+		// ray parallel to triangle, no intersection
+		return ret;
+	}
+	
+	float u = 1.0f / denominator * (- dot(s_cross_e2,d));
+	float v = 1.0f / denominator * (dot(e1_cross_d,s));
+	float t = 1.0f / denominator * (- dot(s_cross_e2,e1));
+
+	if(t<ray.dist_bounds.x || t>ray.dist_bounds.y || u<0 || v<0 || u+v>1){
+		// Primitive intersections that lie outside [ray.dist_bounds.x, ray.dist_bounds.y] range
+		// or no intersections should be disregarded.
+		return ret;
+	}
+
+    ret.hit = true;       // was there an intersection?
+    ret.distance = t;   // at what distance did the intersection occur?
+    ret.position = ray.at(t); // where was the intersection?
+    ret.normal = ((1 - u - v) * v_0.normal + u * v_1.normal + v * v_2.normal).unit();   
+							// what was the surface normal at the intersection?
                            // (this should be interpolated between the three vertex normals)
-	ret.uv = Vec2{};	   // What was the uv associated with the point of intersection?
+	ret.uv = (1 - u - v) * v_0.uv + u * v_1.uv + v * v_2.uv; 	   
+							// What was the uv associated with the point of intersection?
 						   // (this should be interpolated between the three vertex uvs)
     return ret;
 }

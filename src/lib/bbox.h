@@ -84,7 +84,49 @@ struct BBox {
 		// Implement ray - bounding box intersection test
 		// If the ray intersected the bounding box within the range given by
 		// [times.x,times.y], update times with the new intersection times.
+		// This means at least one of tmin and tmax must be within the range
 
+		int sign[3];
+		Vec3 invdir = 1.0f / ray.dir;
+        sign[0] = (invdir.x < 0);
+        sign[1] = (invdir.y < 0);
+        sign[2] = (invdir.z < 0);
+
+		Vec3 bounds[2] = {min, max};
+
+		float tmin, tmax, tymin, tymax, tzmin, tzmax;
+
+		tmin = (bounds[sign[0]].x - ray.point.x) * invdir.x;
+		tmax = (bounds[1-sign[0]].x - ray.point.x) * invdir.x;
+		tymin = (bounds[sign[1]].y - ray.point.y) * invdir.y;
+		tymax = (bounds[1-sign[1]].y - ray.point.y) * invdir.y;
+
+		if ((tmin > tymax) || (tymin > tmax))
+        	return false;
+
+		if (tymin > tmin || std::isnan(tmin))
+			tmin = tymin;
+		if (tymax < tmax || std::isnan(tmax))
+			tmax = tymax;
+		
+		tzmin = (bounds[sign[2]].z - ray.point.z) * invdir.z;
+		tzmax = (bounds[1-sign[2]].z - ray.point.z) * invdir.z;
+		
+		if ((tmin > tzmax) || (tzmin > tmax))
+			return false;
+
+		if (tzmin > tmin || std::isnan(tmin))
+			tmin = tzmin;
+		if (tzmax < tmax || std::isnan(tmax))
+			tmax = tzmax;
+
+		tmin = std::max(tmin, times.x);
+		tmax = std::min(tmax, times.y);
+		if (tmin <= tmax) {
+			times.x = tmin;
+			times.y = tmax;
+			return true;
+		}
 		return false;
 	}
 

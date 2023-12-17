@@ -25,7 +25,7 @@ void Pipeline<primitive_type, Program, flags>::run(std::vector<Vertex> const& ve
 	// 		 You will also need to transform the input and output of the rasterize_* functions to
 	// 	     account for the fact they deal with pixels centered at (0.5,0.5).
 	std::vector< Vec3 > const &samples = framebuffer.sample_pattern.centers_and_weights;
-	int sample_size = samples.size();
+	uint32_t sample_size = samples.size();
 	for (uint32_t s = 0; s < sample_size; ++s) {
 
 		std::vector<ShadedVertex> shaded_vertices;

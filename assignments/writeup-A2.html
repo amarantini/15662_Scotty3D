@@ -1,6 +1,6 @@
 **Assignment 2 Report**
 
-AndrewID: XXXX
+AndrewID: qiruh
 
 (##) About this template
 
@@ -14,7 +14,7 @@ AndrewID: XXXX
 
 * Include descriptions of any encountered problems and the time you spent on each task.
 
-(##) A2L1 CHECKPOINT
+(##) A2L1 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
@@ -22,28 +22,25 @@ You do not need any screenshots for this task.
 
 *  Answer here:
 
-<!-- If the 2 faces adjacent to the edge form a convex polygon, and the interior angles at 2 vertices 
-of the edge in the 2-face polygon is larger than 180 degree, the flipped edge will form a
-new face (this include the case where the flipped edge overlap with an existing edge, then add
-2 more edges to create the new face). -->
+When any endpoint of the edge only has 2 edges or degree<=2, I do not perform splitting since
+this will create a vertex with a single edge which makes the shape non-manifold.
 
 Your completion will be graded based on the reference `test.a2.l1.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2L2 CHECKPOINT
+(##) A2L2 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
-
-For edge on boundary, split edge only create 1 more face.
+There is no edge case.
 
 Your completion will be graded based on the reference `test.a2.l2.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2L3 CHECKPOINT
+(##) A2L3 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
@@ -51,11 +48,11 @@ You do not need any screenshots for this task.
 
 *  Answer here:
 
-- Collapsing some edge after collapsing will result in non-manifold shape. I cheked for these cases
-and abort operation if the operation is illegal. The illegal cases are:
+- Collapsing some edge will result in non-manifold shape (e.g. hourglass shape). I cheked for 
+these cases and abort operation. The illegal cases are:
     - The edge to collapse is not on boundary, AND 2 vertices are on bounary face AND
         - 2 vertices they have no common neighbors, e.g. 2 rectangle case, OR
-        - The edges between the common neighbors of 2 vertices, v1->n and v2->n, are not on boundary
+        - The edges between the common neighbors of 2 vertices, v1->n and v2->n, are not on boundary 
 - If the edge to collapse is the edge of one or more triangle, then the faces adjacent to it become degenerating faces.
 There are 4 cases:
     - If the upper face of edge e is a triangle, then collapse upper face.
@@ -68,41 +65,45 @@ There are 4 cases:
 Your completion will be graded based on the reference `test.a2.l3.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2L4 CHECKPOINT
+(##) A2L4 CHECKPOINT 
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+There is no edge case.
+
+I update the normal of half edges in extrude_position. In the case the area of the face is 0, 
+keep the normal as before to avoid NAN values. 
 
 Your completion will be graded based on the reference `test.a2.l4.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2G1 FINAL
+(##) A2G1 FINAL 
 
 You do not need any screenshots for this task. 
 
 Your completion will be graded based on the reference `test.a2.g1.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2G2 FINAL
+(##) A2G2 FINAL 
 
 You do not need any screenshots for this task. 
 
 Your completion will be graded based on the reference `test.a2.g2.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2G3 FINAL
+(##) A2G3 FINAL 
 
 You do not need any screenshots for this task. 
 
 Your completion will be graded based on the reference `test.a2.g3.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2GO1 CHOICE FINAL
+(##) A2GO1 CHOICE FINAL 
 
-**Global Operation Completed: **
+**Global Operation Completed: ** Yes
 
 You do not need any screenshots for this task. 
 
@@ -113,52 +114,68 @@ checking that the operation works in the GUI.
 
 Image of model in the GUI:
 <div class="twentytwenty-container">
-    <img src="A2-writeup/reference/model-image.png" alt="Your creation">
+    <img src="A2-writeup/student/mycat.png" alt="My cat loaf">
 </div>
+
 Explanation of what it is and how you made it:
 
-Any free model sources you need to credit?
+This is a cat wearing a collar with a bell. I made the collar and bell using existing shape 
+toros and cone. I made the cat from a cube using operations such as extrude face, split edge, catmull-clark.
+The scene is stored under A2-writeup/student/ folder.
 
-(##) A2LX1 EXTRA CREDIT
+Any free model sources you need to credit?
+No.
+
+(##) A2LX1 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+- If a vertex is on boundary and it only has a degree of 2, then do not collapse the vertex.
+- If a vertex is on boundary and it has a degree larger than 2, then collapse vertex without merging the boundary face.
+
 
 Your completion will be graded based on the reference `test.a2.lx1.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2LX2 EXTRA CREDIT
+(##) A2LX2 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+- When there is only 1 face (+ 1 boundary face), do not perform operation since this will result in 1 boundary face.
 
 Your completion will be graded based on the reference `test.a2.lx2.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2LX3 EXTRA CREDIT
+(##) A2LX3 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+
+- If face is a boudary face, do not collapse it.
+- If face has >= 2 non-consequtive boundary edges, collapsing this face will result in hour glass shape, do not collapse it.
+
 
 Your completion will be graded based on the reference `test.a2.lx3.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2LX4 EXTRA CREDIT
+(##) A2LX4 EXTRA CREDIT <font size="10"> IMPLEMENTED </font>
 
 You do not need any screenshots for this task. 
 
 **What edge cases did you handle?**
 
 *  Answer here:
+
+- If the face is a boundary face, do not perform operation.
 
 Your completion will be graded based on the reference `test.a2.lx4.cpp` file and 
 checking that the operation works in the GUI.
@@ -207,9 +224,15 @@ You do not need any screenshots for this task.
 Your completion will be graded based on the reference `test.a2.lx8.cpp` file and 
 checking that the operation works in the GUI.
 
-(##) A2GO2 CHOICE EXTRA CREDIT
+(##) A2GO2 CHOICE EXTRA CREDIT 
 
-**Global Operation Completed: **
+**Global Operation Completed: <font size="10"> IMPLEMENTED </font>**
+
+The instruction does not specify whether we should collapse newly splitted edges. But I feel it
+makes more sense if we do not collapse them. So I only collapse old edges not processed by split edge.
+Also, I noticed that if we collapse newly splitted edges, the operation may collapse all edges of a mesh. 
+This happens when I applied remeshing on a cube after triangulation. 
+In this case all newly splitted edges are shorter than mean edge lengths multiplied by the factor. 
 
 You do not need any screenshots for this task. 
 

@@ -30,6 +30,18 @@ Test test_a4_task1_spline_at_simple("a4.task1.spline.at.simple", []() {
 	if (Test::differs(actual, expected)) {
 		throw Test::error("Incorrect return value between the time of two knots!");
 	}
+
+	expected = Vec3(1.0f, 0.0f, 0.0f);
+	actual = test_spline.at(0.5f);
+	if (Test::differs(actual, expected)) {
+		throw Test::error("Incorrect return value for time before the first knot");
+	}
+
+	expected = Vec3(5.0f, 0.0f, 0.0f);
+	actual = test_spline.at(5.5f);
+	if (Test::differs(actual, expected)) {
+		throw Test::error("Incorrect return value for time after the last knot");
+	}
 });
 
 Test test_a4_task1_spline_cubic_unit_simple("a4.task1.spline.cubic_unit.simple", []() {
@@ -68,5 +80,22 @@ Test test_a4_task1_spline_cubic_unit_simple("a4.task1.spline.cubic_unit.simple",
 		if (Test::differs(actual, expected)) {
 			throw Test::error("Incorrect result at time " + std::to_string(time) + "!");
 		}
+	}
+});
+
+Test test_a4_task1_spline_zeroOne_knot("a4.task1.spline.zeroOne.knot", []() {
+	Spline<Vec3> test_spline;
+
+	Vec3 expected = Vec3(0.0f, 0.0f, 0.0f);
+	Vec3 actual = test_spline.at(1.5f);
+	if (Test::differs(actual, expected)) {
+		throw Test::error("Incorrect return value when there is no knots!");
+	}
+
+	test_spline.set(1.0f, Vec3(1.0f, 0.0f, 0.0f));
+	expected = Vec3(1.0f, 0.0f, 0.0f);
+	actual = test_spline.at(1.5f);
+	if (Test::differs(actual, expected)) {
+		throw Test::error("Incorrect return value when there is one knot!");
 	}
 });
